@@ -1,94 +1,207 @@
 ---
 max_players: 4
 min_players: 2
-
+board_width: 360
+board_height: 360
+block_width: 24
+block_height: 24
+colors:
+  - red
+  - green
+  - blue
+  - yellow
 base_positions:
-  - red:
+  red:
     - x: 36
       y: 36
-      w: 24
-      h: 24
     - x: 84
       y: 36
-      w: 24
-      h: 24
     - x: 36
       y: 84
-      w: 24
-      h: 24
     - x: 84
       y: 84
-      w: 24
-      h: 24
-  - green:
+  green:
     - x: 252
       y: 36
-      w: 24
-      h: 24
     - x: 300
       y: 36
-      w: 24
-      h: 24
     - x: 252
       y: 84
-      w: 24
-      h: 24
     - x: 300
       y: 84
-      w: 24
-      h: 24
-  - blue:
+  blue:
     - x: 36
       y: 252
-      w: 24
-      h: 24
     - x: 84
       y: 252
-      w: 24
-      h: 24
     - x: 36
       y: 300
-      w: 24
-      h: 24
     - x: 84
       y: 300
-      w: 24
-      h: 24
-  - yellow:
+  yellow:
     - x: 252
       y: 252
-      w: 24
-      h: 24
     - x: 300
       y: 252
-      w: 24
-      h: 24
     - x: 252
       y: 300
-      w: 24
-      h: 24
     - x: 300
       y: 300
-      w: 24
-      h: 24
+
 start_positions:
-  - red:
-    - x: 24
-      y: 144
-      w: 24
-      h: 24
-  - green:
-    - x: 192
+  red:
+    x: 24
+    y: 144
+  green:
+    x: 192
+    y: 24
+  blue:
+    x: 144
+    y: 312
+  yellow:
+    x: 312
+    y: 192
+
+end_positions:
+  red:
+    x: 0
+    y: 168
+  green:
+    x: 168
+    y: 0
+  blue:
+    x: 168
+    y: 336
+  yellow:
+    x: 336
+    y: 168
+
+win_positions:
+  red:
+    start:
+      x: 24
+      y: 168
+    advance:
+      x: 24
+      y: 0
+    num_continue: 6
+  green:
+    start:
+      x: 168
       y: 24
-      w: 24
-      h: 24
-  - blue:
-    - x: 144
+    advance:
+      x: 0
+      y: 24
+    num_continue: 6
+  blue:
+    start:
+      x: 168
       y: 312
-      w: 24
-      h: 24
-  - yellow:
-    - x: 312
+    advance:
+      x: 0
+      y: -24
+    num_continue: 6
+  yellow:
+    start:
+      x: 312
+      y: 168
+    advance:
+      x: -24
+      y: 0
+    num_continue: 6
+
+other_safe_positions:
+  - x: 48
+    y: 192
+  - x: 144
+    y: 48
+  - x: 288
+    y: 144
+  - x: 192
+    y: 288
+
+rest_paths:
+  - start:
+      x: 0
+      y: 144
+    advance:
+      x: 24
+      y: 0
+    num_continue: 6
+  - start:
+      x: 144
+      y: 120
+    advance:
+      x: 0
+      y: -24
+    num_continue: 6
+  - start:
+      x: 168
+      y: 0
+    advance:
+      x: 24
+      y: 0
+    num_continue: 1
+  - start:
+      x: 192
+      y: 0
+    advance:
+      x: 0
+      y: 24
+    num_continue: 6
+  - start:
+      x: 216
+      y: 144
+    advance:
+      x: 24
+      y: 0
+    num_continue: 6
+  - start:
+      x: 336
+      y: 168
+    advance:
+      x: 0
+      y: 24
+    num_continue: 1
+  - start:
+      x: 336
       y: 192
-      w: 24
-      h: 24
+    advance:
+      x: -24
+      y: 0
+    num_continue: 6
+  - start:
+      x: 192
+      y: 216
+    advance:
+      x: 0
+      y: 24
+    num_continue: 6
+  - start:
+      x: 168
+      y: 336
+    advance:
+      x: -24
+      y: 0
+    num_continue: 1
+  - start:
+      x: 144
+      y: 336
+    advance:
+      x: 0
+      y: -24
+    num_continue: 6
+  - start:
+      x: 120
+      y: 192
+    advance:
+      x: -24
+      y: 0
+    num_continue: 6
+  - start:
+      x: 0
+      y: 168
+    advance:
+      x: 0
+      y: -24
+    num_continue: 1
