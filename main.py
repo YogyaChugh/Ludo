@@ -1,6 +1,15 @@
 import flet as ft
+import copy
+import yaml
+try:
+    from yaml import CLoader as Loader, CDumper as Dumper
+except ImportError:
+    from yaml import Loader, Dumper
 
 def main(page: ft.Page):
+    page.window.width = 400
+    page.window.maximizable = False
+    page.window.resizable = False
     page.padding = 0
     
     img = ft.Image(
@@ -8,16 +17,29 @@ def main(page: ft.Page):
         fit=ft.ImageFit.FILL
     )
 
-    anoth_img = ft.Image(
+    dice_img = ft.Image(
         'https://raw.githubusercontent.com/YogyaChugh/Ludo/master/assets/base.png',
-        width=24,
-        top=144,
-        left=24
+        width=22,
+        top=253,
+        left=37
     )
+    with open('data/board_4.yaml', 'r') as file:
+        data = yaml.load(file,Loader=Loader)
+    print(data)
+    main_board = ft.Container(img,alignment=ft.alignment.top_left)
+    cont = ft.Stack([main_board])
 
-    gg = ft.Container(img,alignment=ft.alignment.top_left)
+    positions = data.get('base_positions')
 
-    cont = ft.Stack([gg,anoth_img])
+    for i in positions:
+        for j in i.values():
+            for k in j:
+                temp = copy.deepcopy(dice_img)
+                extra_dist = (k.get('w')-dice_img.width)/2
+                temp.top = k.get('y') + extra_dist
+                temp.left = k.get('x') + extra_dist
+                cont.controls.append(temp)
+    page.update()
 
     page.add(cont)
     page.update()
