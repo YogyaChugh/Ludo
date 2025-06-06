@@ -10,7 +10,8 @@ class token:
         if not self.player.isinstance(Player):
             raise GameOver("Bugs in the game guyz !")
         self.player = player
-        self.current_loc = None
+        self.home_block = None
+        self.current_block = None
 
 class Player:
     num = 0
@@ -23,10 +24,10 @@ class Player:
             self.name = kwargs.get('name')
         
         if not kwargs.get('color'):
-            self.color = random.choice(Player.colors_available)
-            Player.colors_available -= self.color
+            self.display_color = random.choice(Player.colors_available)
+            Player.colors_available -= self.display_color
         else:
-            self.color = kwargs.get('color')
+            self.display_color = kwargs.get('color')
         
 
         if not kwargs.get('num_tokens'):
@@ -39,6 +40,14 @@ class Player:
             str(i)
             temp = token(self)
             self.token_dict[str(hash(temp))] = temp
+    
+    def associate_color(self,color):
+        self.color = color
+        num = 0
+        for i in self.token_dict.values():
+            i.home_block = color.home_blocks[num]
+            i.current_block = color.home_blocks[num]
+            num += 1
 
 class Color:
     color = None
@@ -101,6 +110,8 @@ class Board:
         self.height = data.get('board_height')
         self.block_width = data.get('block_width')
         self.block_height = data.get('block_height')
+        self.dice_base_width = data.get('dice_base_width')
+        self.dice_base_height = data.get('dice_base_height')
 
         self.colors = {}
 

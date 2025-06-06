@@ -5,11 +5,23 @@ board_width: 360
 board_height: 360
 block_width: 24
 block_height: 24
+dice_base_width: 22
+dice_base_height: 22
+
+asset_board: 'board_4.jpg'
+asset_dice_base: 'base.png'
+asset_red: 'token_red.png'
+asset_green: 'token_green.png'
+asset_yellow: 'token_yellow.png'
+asset_blue: 'token_blue.png'
+
 colors:
   - red
   - green
   - blue
   - yellow
+
+
 base_positions:
   red:
     - x: 36
