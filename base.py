@@ -1,4 +1,8 @@
 import random
+import flet as ft
+import copy
+import math
+import os
 from exceptions import GameOver, DiceReachedEnd
 try:
     from yaml import CLoader as Loader, CDumper as Dumper, load, dump
@@ -13,17 +17,60 @@ class token:
         self.home_block = None
         self.current_block = None
         self.gesture_cont = None
-        self.move_permitted = False
 
-    def move(self,num):
+        self.move_permitted = False
+        self.reached_end = False
+
+        self.page = None
+    
+    def __repr__(self):
+        return str(self.player) + "\t" + str(hash(self)) + "\t" + str(self.home_block)
+
+    def move(self,e=None):
+        print('Move Called Dude')
+        num = eval(os.environ.get('dice_num'))
+        if not self.move_permitted:
+            print('Move not permitted !')
+            return
         for i in range(0,num):
             if self.current_block == self.player.color.last_path_block:
                 self.current_block = self.player.color.end_entry_path[0]
             elif self.current_block.next_block == None:
+                print("the block: ",self.current_block)
                 raise DiceReachedEnd(self)
             else:
+                print('Moveed')
                 self.current_block = self.current_block.next_block
 
+        dimensions = eval(os.environ.get('dimensions'))
+        self.gesture_cont.top = dimensions[1] + self.current_block.location[1] + math.fabs(self.current_block.dimension[1] - self.image.height)//2
+        self.gesture_cont.left = dimensions[0] + self.current_block.location[0] + math.fabs(self.current_block.dimension[0] - self.image.width)//2
+
+        self.player.disable_movement_for_tokens()
+
+        self.page.update()
+
+    def nothing(self,e=None):
+        return
+
+    def create_token(self,image,page):
+        self.page = page
+
+        if not self.current_block:
+            raise GameOver("Token Image created before setting actual position on board !")
+        self.image = copy.deepcopy(image)
+
+        dimensions = eval(os.environ.get('dimensions'))
+
+        self.gesture_cont = ft.GestureDetector(
+            mouse_cursor = ft.MouseCursor.CLICK,
+            on_tap = self.nothing,
+            content = self.image,
+            top = dimensions[1] + self.current_block.location[1] + math.fabs(self.current_block.dimension[1] - self.image.height)//2,
+            left = dimensions[0] + self.current_block.location[0] + math.fabs(self.current_block.dimension[0] - self.image.width)//2,
+        )
+
+        return self.gesture_cont
 class Player:
     num = 0
     def __init__(self,**kwargs):
@@ -52,6 +99,13 @@ class Player:
             i.home_block = color.home_blocks[num]
             i.current_block = color.home_blocks[num]
             num += 1
+
+    def disable_movement_for_tokens(self):
+        for i in self.tokens:
+            i.move_permitted = False
+    
+    def __str__(self):
+        return self.name
 
 class Color:
     color = None
@@ -91,10 +145,10 @@ class Block:
         self.colors_allowed = colors_allowed
     
     def __repr__(self):
-        return f"Hash: {hash(self)} | Loc: {self.location} | Dims: {self.dimension} | Safe: {self.safe} | Colors: {self.colors_allowed}"
+        return f"Hash: {hash(self)} | Loc: {self.location} | Dims: {self.dimension} | Safe: {self.safe} | Colors: {self.colors_allowed} | Next Block: {self.next_block}"
     
     def __str__(self):
-        return f"Hash: {hash(self)} | Loc: {self.location} | Dims: {self.dimension} | Safe: {self.safe} | Colors: {self.colors_allowed}"
+        return f"Hash: {hash(self)} | Loc: {self.location} | Dims: {self.dimension} | Safe: {self.safe} | Colors: {self.colors_allowed} | Next Block: {self.next_block}"
 
 
 class Board:
@@ -184,3 +238,29 @@ class Board:
                     tb = Block([k.get('x'), k.get('y')], [data.get('block_width'),data.get('block_height')], None, self.colors.get(i).start_block, True, i)
                     temp_home_locs.append(tb)
                 self.colors[i].home_blocks = temp_home_locs
+
+
+class Dice:
+    player_associated = None
+    number = None
+
+    def roll(self):
+        if not self.player_associated:
+            raise GameOver("Bugs in the game guyz !")
+        self.number = random.randint(1,6)
+        for i in self.player_associated.tokens:
+            if self.number == 6:
+                if not i.reached_end:
+                    print(i)
+                    i.move_permitted = True
+                    i.gesture_cont.on_tap = i.move
+            else:
+                if not i.reached_end and i.home_block != i.current_block:
+                    print(i)
+                    i.move_permitted = True
+                    i.gesture_cont.on_tap = i.move
+                
+        return self.number
+    
+    def associate_player(self,player):
+        self.player_associated = player

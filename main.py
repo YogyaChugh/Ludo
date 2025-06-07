@@ -14,6 +14,8 @@ except ImportError:
 
 async def game(page,board_yaml_file):
 
+    page.session.set('game_running',True)
+
     # Load File
     with open(board_yaml_file,'r') as file:
         data = load(file,Loader)
@@ -33,11 +35,12 @@ async def game(page,board_yaml_file):
     board_h = data.get('board_height')
     cal_x = (w - board_w)//2
     cal_y = (h - board_h)//2
+    os.environ['dimensions'] = str((cal_x, cal_y))
     print("calx: ",cal_x,"\ncaly: ",cal_y)
 
     # Background Image
     bgimg = ft.Container(
-        image = ft.DecorationImage('https://raw.githubusercontent.com/YogyaChugh/Ludo/master/assets/background.png', fit = ft.ImageFit.COVER, opacity=0.8),
+        image = ft.DecorationImage('https://raw.githubusercontent.com/YogyaChugh/Ludo/master/assets/background.png', fit = ft.ImageFit.COVER, opacity=0.7),
         expand = True
     )
 
@@ -83,52 +86,53 @@ async def game(page,board_yaml_file):
             players[-1].associate_color(colors_left[a])
             colors_left.pop(a)
 
-    num = ft.Text('0',left = cal_x + board_w//2 - 20, top = cal_y + board_h + 80)
-
-    def do_it(e=None):
-        print("e: ",e)
-        print('hi')
-        page.update()
-
-    def create_token(i,j,n):
-        temp = copy.deepcopy(dice_img)
-        
-        def dont_do_it(e=None):
-            pass
-
-        temporary = ft.GestureDetector(
-            mouse_cursor=ft.MouseCursor.CLICK,
-            on_tap = dont_do_it,
-            content = temp,
-            top = cal_y + j.location[1] + math.fabs(j.dimension[1] - data.get('dice_base_height'))//2,
-            left = cal_x + j.location[0] + math.fabs(j.dimension[0] - data.get('dice_base_width'))//2
-        )
-
-        return temporary
-
     # Generating Player tokens and handling click events
     for i in players:
-        n = 0
-        for j in i.color.home_blocks:
-            i.tokens[n].current_block = j
-            i.tokens[n].gesture_cont = create_token(i,j,n)
-            cont.controls.append(i.tokens[n].gesture_cont)
-            n += 1
+        for j in i.tokens:
+            cont.controls.append(j.create_token(dice_img,page))
     page.update()
-    
-    cur_number = 0
+
+    num = ft.Text('0',size=30,left = cal_x + board_w//2 - 15, top = cal_y + board_h + 80)
+
+    dice = base.Dice()
     def roll(e=None):
-        cur_number = random.randint(1,6)
-        num.value = cur_number
+        num.value = dice.roll()
+        os.environ['dice_num'] = str(num.value)
         page.update()
 
-    but = ft.ElevatedButton("Roll Dice",on_click=roll,left = cal_x + board_w//2 - 35, top = cal_y + board_h + 20,disabled=True)
-    cont.controls.append(but)
+    dice_roll_button = ft.FilledButton(
+            "Roll Dice",
+            style=ft.ButtonStyle(
+                shape=ft.StadiumBorder(),
+            ),
+            on_click = roll,
+            left = cal_x + board_w//2 - 38,
+            top = cal_y + board_h + 20,
+            disabled = True
+        )
+    
+    pl = ft.Text('None',size=30,left = cal_x + board_w//2 - 15, top = cal_y + board_h + 180)
+    cont.controls.append(dice_roll_button)
     cont.controls.append(num)
+    cont.controls.append(pl)
 
     bgimg.content = cont
     page.add(bgimg)
     page.update()
+
+    # THE GAME PLAY
+    player_in_turn = None
+    while page.session.get('game_running'):
+        if not player_in_turn:
+            player_in_turn = random.choice(players)
+        else:
+            player_in_turn = players[(players.index(player_in_turn) + 1)%len(players)]
+        
+        dice.associate_player(player_in_turn) #Very Important else GameOver error (check roll method of Dice class in base.py)
+        dice_roll_button.disabled = False
+        pl.value = str(player_in_turn)
+        page.session.set('game_running', False)
+        page.update()
 
 async def main(page: ft.Page):
     page.window.width = 400
@@ -137,9 +141,10 @@ async def main(page: ft.Page):
     page.padding = 0
     page.update()
     os.environ['num_players'] = '2'
+    page.session.set('game_running',False)
 
     bgimg = ft.Container(
-        image = ft.DecorationImage('https://raw.githubusercontent.com/YogyaChugh/Ludo/master/assets/landing_page.png', fit = ft.ImageFit.FILL, opacity=0.8),
+        image = ft.DecorationImage('https://raw.githubusercontent.com/YogyaChugh/Ludo/master/assets/lander.png', fit = ft.ImageFit.FILL, opacity=0.8),
         expand = True
     )
     page.add(bgimg)
