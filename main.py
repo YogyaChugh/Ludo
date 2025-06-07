@@ -20,16 +20,24 @@ async def game(page,board_yaml_file):
 
 
     # Calculate board dimensions based on screen dimensions
-    w = page.width
-    h = page.height
+    if page.platform == ft.PagePlatform.ANDROID or page.platform == ft.PagePlatform.IOS:
+        w = page.width
+        h = page.height
+    else:
+        w = page.window.width
+        h = page.window.height
+    print("w: ", w,"\nh: ",h)
+
+
     board_w = data.get('board_width')
     board_h = data.get('board_height')
     cal_x = (w - board_w)//2
     cal_y = (h - board_h)//2
+    print("calx: ",cal_x,"\ncaly: ",cal_y)
 
     # Background Image
     bgimg = ft.Container(
-        image = ft.DecorationImage('https://raw.githubusercontent.com/YogyaChugh/Ludo/master/assets/background.png', fit = ft.ImageFit.COVER),
+        image = ft.DecorationImage('https://raw.githubusercontent.com/YogyaChugh/Ludo/master/assets/background.png', fit = ft.ImageFit.COVER, opacity=0.8),
         expand = True
     )
 
@@ -130,6 +138,15 @@ async def main(page: ft.Page):
     page.update()
     os.environ['num_players'] = '2'
 
+    bgimg = ft.Container(
+        image = ft.DecorationImage('https://raw.githubusercontent.com/YogyaChugh/Ludo/master/assets/landing_page.png', fit = ft.ImageFit.FILL, opacity=0.8),
+        expand = True
+    )
+    page.add(bgimg)
+
+    await asyncio.sleep(3)
+
+    page.remove(bgimg)
     await asyncio.create_task(game(page,'data/board_4.yaml'))
 
     print("It's running")
