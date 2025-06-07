@@ -27,20 +27,28 @@ class token:
         return str(self.player) + "\t" + str(hash(self)) + "\t" + str(self.home_block)
 
     def move(self,e=None):
-        print('Move Called Dude')
+        disabled = False
+
         num = eval(os.environ.get('dice_num'))
         if not self.move_permitted:
             print('Move not permitted !')
             return
+        if self.home_block == self.current_block:
+            num = 1
+        a = self.current_block
         for i in range(0,num):
-            if self.current_block == self.player.color.last_path_block:
-                self.current_block = self.player.color.end_entry_path[0]
-            elif self.current_block.next_block == None:
-                print("the block: ",self.current_block)
-                raise DiceReachedEnd(self)
-            else:
-                print('Moveed')
-                self.current_block = self.current_block.next_block
+            if not a.next_block:
+                disabled = True
+            a = a.next_block
+        if not disabled:
+            for i in range(0,num):
+                if self.current_block == self.player.color.last_path_block:
+                    self.current_block = self.player.color.end_entry_block
+                elif self.current_block.next_block == None:
+                    raise DiceReachedEnd(self)
+                else:
+                    print('Moveed')
+                    self.current_block = self.current_block.next_block
 
         dimensions = eval(os.environ.get('dimensions'))
         self.gesture_cont.top = dimensions[1] + self.current_block.location[1] + math.fabs(self.current_block.dimension[1] - self.image.height)//2
@@ -73,6 +81,7 @@ class token:
         return self.gesture_cont
 class Player:
     num = 0
+    dice = None
     def __init__(self,**kwargs):
         if not kwargs.get('name'):
             self.name = f"Player {Player.num+1}"
@@ -101,8 +110,12 @@ class Player:
             num += 1
 
     def disable_movement_for_tokens(self):
+        if not self.dice:
+            raise GameOver('Bugs in the game guyz !')
+        self.dice.cont.on_tap = self.dice.roll
         for i in self.tokens:
             i.move_permitted = False
+            i.gesture_cont.on_tap = i.nothing
     
     def __str__(self):
         return self.name
@@ -145,10 +158,10 @@ class Block:
         self.colors_allowed = colors_allowed
     
     def __repr__(self):
-        return f"Hash: {hash(self)} | Loc: {self.location} | Dims: {self.dimension} | Safe: {self.safe} | Colors: {self.colors_allowed} | Next Block: {self.next_block}"
+        return f"Hash: {hash(self)} | Loc: {self.location} | Dims: {self.dimension} | Safe: {self.safe} | Colors: {self.colors_allowed}"
     
     def __str__(self):
-        return f"Hash: {hash(self)} | Loc: {self.location} | Dims: {self.dimension} | Safe: {self.safe} | Colors: {self.colors_allowed} | Next Block: {self.next_block}"
+        return f"Hash: {hash(self)} | Loc: {self.location} | Dims: {self.dimension} | Safe: {self.safe} | Colors: {self.colors_allowed}"
 
 
 class Board:
@@ -191,8 +204,8 @@ class Board:
         total = len(data.get('rest_paths'))
         count = 1
         beg_block = None
+        temp_prev = None
         for i in data.get('rest_paths'):
-            temp_prev = None
             start = i.get('start')
             advance = i.get('advance')
             b_count = 1
@@ -213,6 +226,7 @@ class Board:
                     if [x_pos,y_pos] == start_locs.get(i):
                         self.colors[i].start_block = tb
                 b_count +=1
+                temp_prev = tb
             count +=1
 
         for i in data.get('win_positions'):
@@ -229,6 +243,7 @@ class Board:
                 if b_count==1:
                     self.colors[i].end_entry_block = tb
                 b_count += 1
+                temp_prev = tb
 
         for i in data.get('base_positions'):
             if i in self.colors:
@@ -239,28 +254,53 @@ class Board:
                     temp_home_locs.append(tb)
                 self.colors[i].home_blocks = temp_home_locs
 
-
 class Dice:
     player_associated = None
     number = None
 
-    def roll(self):
+    def __init__(self,position,dimension,page):
+        self.page = page
+        self.lottie = ft.Lottie("https://raw.githubusercontent.com/YogyaChugh/Ludo/master/assets/dice_1.json",repeat = False)
+        self.cont = ft.GestureDetector(
+            content = self.lottie,
+            mouse_cursor=ft.MouseCursor.CLICK,
+            on_tap = self.nothing,
+            left = position[0],
+            top = position[1],
+            width = dimension[0],
+            height = dimension[1]
+        )
+
+    def nothing(self,e=None):
+        return
+
+    def roll(self,e=None):
+        print('ROLL CALLED ! ')
         if not self.player_associated:
             raise GameOver("Bugs in the game guyz !")
         self.number = random.randint(1,6)
+        self.lottie.src = f"https://raw.githubusercontent.com/YogyaChugh/Ludo/master/assets/dice_{self.number}.json"
+        self.cont.content = self.lottie
+        self.page.update()
+        os.environ['dice_num'] = str(self.number)
         for i in self.player_associated.tokens:
             if self.number == 6:
                 if not i.reached_end:
-                    print(i)
                     i.move_permitted = True
                     i.gesture_cont.on_tap = i.move
+                    self.cont.on_tap = self.nothing
             else:
                 if not i.reached_end and i.home_block != i.current_block:
-                    print(i)
                     i.move_permitted = True
                     i.gesture_cont.on_tap = i.move
-                
+                    self.cont.on_tap = self.nothing
+                    self.page.update()
+        if self.number != 6:
+            players = self.page.session.get('players')
+            self.associate_player(players[(players.index(self.player_associated) + 1)%len(players)])
         return self.number
     
     def associate_player(self,player):
+        print('DICE ASSOCIATED TO ',str(player))
         self.player_associated = player
+        player.dice = self

@@ -86,34 +86,18 @@ async def game(page,board_yaml_file):
             players[-1].associate_color(colors_left[a])
             colors_left.pop(a)
 
+    page.session.set('players',players)
+
     # Generating Player tokens and handling click events
     for i in players:
         for j in i.tokens:
             cont.controls.append(j.create_token(dice_img,page))
     page.update()
 
-    num = ft.Text('0',size=30,left = cal_x + board_w//2 - 15, top = cal_y + board_h + 80)
-
-    dice = base.Dice()
-    def roll(e=None):
-        num.value = dice.roll()
-        os.environ['dice_num'] = str(num.value)
-        page.update()
-
-    dice_roll_button = ft.FilledButton(
-            "Roll Dice",
-            style=ft.ButtonStyle(
-                shape=ft.StadiumBorder(),
-            ),
-            on_click = roll,
-            left = cal_x + board_w//2 - 38,
-            top = cal_y + board_h + 20,
-            disabled = True
-        )
+    dice = base.Dice([cal_x + board_w//2 - 38, cal_y + board_h + 20],[50,50],page)
     
     pl = ft.Text('None',size=30,left = cal_x + board_w//2 - 15, top = cal_y + board_h + 180)
-    cont.controls.append(dice_roll_button)
-    cont.controls.append(num)
+    cont.controls.append(dice.cont)
     cont.controls.append(pl)
 
     bgimg.content = cont
@@ -121,18 +105,16 @@ async def game(page,board_yaml_file):
     page.update()
 
     # THE GAME PLAY
-    player_in_turn = None
-    while page.session.get('game_running'):
-        if not player_in_turn:
-            player_in_turn = random.choice(players)
-        else:
-            player_in_turn = players[(players.index(player_in_turn) + 1)%len(players)]
-        
-        dice.associate_player(player_in_turn) #Very Important else GameOver error (check roll method of Dice class in base.py)
-        dice_roll_button.disabled = False
-        pl.value = str(player_in_turn)
-        page.session.set('game_running', False)
-        page.update()
+    player_in_turn = random.choice(players)
+    print('ALL PLAYERS: ',players)
+    print('Player in turn: ',player_in_turn)
+    dice.associate_player(player_in_turn) #Very Important else GameOver error (check roll method of Dice class in base.py)
+    print('done once')
+    dice.cont.on_tap = dice.roll
+    pl.value = str(player_in_turn)
+    page.session.set('player_name',pl)
+    page.session.set('game_running', False)
+    page.update()
 
 async def main(page: ft.Page):
     page.window.width = 400
