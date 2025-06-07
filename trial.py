@@ -5,7 +5,7 @@ import flet_lottie as fl
 def main(page: ft.Page):
     page.add(
         fl.Lottie(
-            src='assets/dice_1.json',
+            src='https://raw.githubusercontent.com/YogyaChugh/Ludo/master/assets/dice_1.json',
             reverse=False,
             animate=True
         )
