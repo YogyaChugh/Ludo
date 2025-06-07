@@ -1,5 +1,5 @@
 import random
-from exceptions import GameOver
+from exceptions import GameOver, DiceReachedEnd
 try:
     from yaml import CLoader as Loader, CDumper as Dumper, load, dump
 except ImportError:
@@ -7,44 +7,48 @@ except ImportError:
 
 class token:
     def __init__(self,player):
-        if not self.player.isinstance(Player):
+        if not isinstance(player, Player):
             raise GameOver("Bugs in the game guyz !")
         self.player = player
         self.home_block = None
         self.current_block = None
+        self.gesture_cont = None
+        self.move_permitted = False
+
+    def move(self,num):
+        for i in range(0,num):
+            if self.current_block == self.player.color.last_path_block:
+                self.current_block = self.player.color.end_entry_path[0]
+            elif self.current_block.next_block == None:
+                raise DiceReachedEnd(self)
+            else:
+                self.current_block = self.current_block.next_block
 
 class Player:
     num = 0
-    colors_available = []
     def __init__(self,**kwargs):
         if not kwargs.get('name'):
             self.name = f"Player {Player.num+1}"
             Player.num += 1
         else:
             self.name = kwargs.get('name')
-        
-        if not kwargs.get('color'):
-            self.display_color = random.choice(Player.colors_available)
-            Player.colors_available -= self.display_color
-        else:
-            self.display_color = kwargs.get('color')
-        
 
         if not kwargs.get('num_tokens'):
             self.num_tokens = 4
         else:
             self.num_tokens = kwargs.get('num_tokens')
 
-        self.token_dict = {}
+        self.tokens = []
+        self.color = None
         for i in range(0,self.num_tokens):
             str(i)
             temp = token(self)
-            self.token_dict[str(hash(temp))] = temp
+            self.tokens.append(temp)
     
     def associate_color(self,color):
         self.color = color
         num = 0
-        for i in self.token_dict.values():
+        for i in self.tokens:
             i.home_block = color.home_blocks[num]
             i.current_block = color.home_blocks[num]
             num += 1
@@ -118,15 +122,6 @@ class Board:
         for i in data.get('colors'):
             self.colors[i] = Color(i)
 
-        for i in data.get('base_positions'):
-            if i in self.colors:
-                temp = data.get('base_positions').get(i)
-                temp_home_locs = []
-                for k in temp:
-                    tb = Block([k.get('x'), k.get('y')], [data.get('block_width'),data.get('block_height')], None, None, True, i)
-                    temp_home_locs.append(tb)
-                self.colors[i].home_blocks = temp_home_locs
-
         start_locs = {}
         for i in data.get('start_positions'):
             start_locs[i] = [data.get('start_positions').get(i).get('x'), data.get('start_positions').get(i).get('y')]
@@ -180,3 +175,12 @@ class Board:
                 if b_count==1:
                     self.colors[i].end_entry_block = tb
                 b_count += 1
+
+        for i in data.get('base_positions'):
+            if i in self.colors:
+                temp = data.get('base_positions').get(i)
+                temp_home_locs = []
+                for k in temp:
+                    tb = Block([k.get('x'), k.get('y')], [data.get('block_width'),data.get('block_height')], None, self.colors.get(i).start_block, True, i)
+                    temp_home_locs.append(tb)
+                self.colors[i].home_blocks = temp_home_locs
