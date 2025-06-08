@@ -1,0 +1,4 @@
+certifi
+flet
+pyyaml
+flet-lottie

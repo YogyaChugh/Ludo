@@ -1,8 +1,10 @@
 import random
 import flet as ft
+import flet_lottie as fl
 import copy
 import math
 import os
+import base64
 from exceptions import GameOver, DiceReachedEnd
 try:
     from yaml import CLoader as Loader, CDumper as Dumper, load, dump
@@ -112,10 +114,12 @@ class Player:
     def disable_movement_for_tokens(self):
         if not self.dice:
             raise GameOver('Bugs in the game guyz !')
-        self.dice.cont.on_tap = self.dice.roll
+        print(f'dice back on roll:- {self.dice.number}')
+        self.dice.cont[self.dice.number - 1].on_tap = self.dice.roll
         for i in self.tokens:
             i.move_permitted = False
             i.gesture_cont.on_tap = i.nothing
+        self.dice.page.update()
     
     def __str__(self):
         return self.name
@@ -256,20 +260,30 @@ class Board:
 
 class Dice:
     player_associated = None
-    number = None
+    number = 1
+    cont = []
 
-    def __init__(self,position,dimension,page):
+    def __init__(self,position,dimension,page,main_cont):
         self.page = page
-        self.lottie = ft.Lottie("https://raw.githubusercontent.com/YogyaChugh/Ludo/master/assets/dice_1.json",repeat = False)
-        self.cont = ft.GestureDetector(
-            content = self.lottie,
-            mouse_cursor=ft.MouseCursor.CLICK,
-            on_tap = self.nothing,
-            left = position[0],
-            top = position[1],
-            width = dimension[0],
-            height = dimension[1]
-        )
+        self.main_cont = main_cont
+        for i in range(1,7):
+            with open(f'assets/dice_{i}.json','r',encoding='utf-8') as json_file:
+                data = json_file.read()
+            json_base64 = base64.b64encode(data.encode('utf-8')).decode('utf-8')
+            lottie = fl.Lottie(src_base64=json_base64,repeat = False,width=dimension[0], height=dimension[1])
+            self.cont.append(
+                ft.GestureDetector(
+                    content = lottie,
+                    mouse_cursor=ft.MouseCursor.CLICK,
+                    on_tap = self.nothing,
+                    left = position[0],
+                    top = position[1],
+                    width = dimension[0],
+                    height = dimension[1]
+                )
+            )
+        self.main_cont.controls.append(self.cont[self.number - 1])
+        self.page.update()
 
     def nothing(self,e=None):
         return
@@ -278,9 +292,9 @@ class Dice:
         print('ROLL CALLED ! ')
         if not self.player_associated:
             raise GameOver("Bugs in the game guyz !")
+        self.main_cont.controls.remove(self.cont[self.number - 1])
         self.number = random.randint(1,6)
-        self.lottie.src = f"https://raw.githubusercontent.com/YogyaChugh/Ludo/master/assets/dice_{self.number}.json"
-        self.cont.content = self.lottie
+        self.main_cont.controls.append(self.cont[self.number - 1])
         self.page.update()
         os.environ['dice_num'] = str(self.number)
         for i in self.player_associated.tokens:
@@ -288,16 +302,21 @@ class Dice:
                 if not i.reached_end:
                     i.move_permitted = True
                     i.gesture_cont.on_tap = i.move
-                    self.cont.on_tap = self.nothing
+                    print('6 number rolled')
+                    self.cont[self.number - 1].on_tap = self.nothing
+                    self.page.update()
             else:
                 if not i.reached_end and i.home_block != i.current_block:
                     i.move_permitted = True
                     i.gesture_cont.on_tap = i.move
-                    self.cont.on_tap = self.nothing
+                    print('not 6 number rolled')
+                    self.cont[self.number - 1].on_tap = self.nothing
                     self.page.update()
         if self.number != 6:
+            print('yehooooo')
             players = self.page.session.get('players')
             self.associate_player(players[(players.index(self.player_associated) + 1)%len(players)])
+        print(self.cont)
         return self.number
     
     def associate_player(self,player):
