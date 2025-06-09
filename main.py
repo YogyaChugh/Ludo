@@ -2,7 +2,6 @@ import flet as ft
 import base
 import asyncio
 import copy
-import math
 import os
 import exceptions
 import random
@@ -40,20 +39,20 @@ async def game(page,board_yaml_file):
 
     # Background Image
     bgimg = ft.Container(
-        image = ft.DecorationImage('https://raw.githubusercontent.com/YogyaChugh/Ludo/master/assets/background.png', fit = ft.ImageFit.COVER, opacity=0.7),
+        image = ft.DecorationImage("https://raw.githubusercontent.com/YogyaChugh/Ludo/master/assets/" + data.get('bg_image'), fit = ft.ImageFit.COVER, opacity=0.7),
         expand = True
     )
 
     # Board Image
     img = ft.Image(
-        'https://raw.githubusercontent.com/YogyaChugh/Ludo/master/assets/board_4.jpg',
+        "https://raw.githubusercontent.com/YogyaChugh/Ludo/master/assets/" + data.get('asset_board'),
         fit=ft.ImageFit.FILL
     )
 
 
     # Base of Every Token
     dice_img = ft.Image(
-        'https://raw.githubusercontent.com/YogyaChugh/Ludo/master/assets/base.png',
+        "https://raw.githubusercontent.com/YogyaChugh/Ludo/master/assets/" + data.get('asset_dice_base'),
         width = data.get('dice_base_width'),
         height = data.get('dice_base_height')
     )
@@ -91,12 +90,19 @@ async def game(page,board_yaml_file):
     # Generating Player tokens and handling click events
     for i in players:
         for j in i.tokens:
-            cont.controls.append(j.create_token(dice_img,page))
+            hover_image = ft.Image(
+                f'https://raw.githubusercontent.com/YogyaChugh/Ludo/master/assets/token_{i.color.color}.png',
+                width = 22,
+                height = 30
+            )
+            container1, container2 = j.create_token(dice_img,hover_image,page)
+            cont.controls.append(container1)
+            cont.controls.append(container2)
     page.update()
 
     dice = base.Dice([cal_x + board_w//2 - 38, cal_y + board_h + 20],[50,50],page)
     
-    pl = ft.Text('None',size=30,left = cal_x + board_w//2 - 15, top = cal_y + board_h + 180)
+    pl = ft.Text('None',size=30,left = cal_x + board_w//2 - 15, top = cal_y + board_h + 50)
     cont.controls.append(dice.cont)
     cont.controls.append(pl)
 
@@ -134,8 +140,8 @@ async def main(page: ft.Page):
     await asyncio.sleep(3)
 
     page.remove(bgimg)
-    await asyncio.create_task(game(page,'data/board_4.yaml'))
+    await asyncio.create_task(game(page,'assets/board_4.yaml'))
 
     print("It's running")
 
-ft.app(main,assets_dir="assets",port=5000)
+ft.app(main,assets_dir="assets")
