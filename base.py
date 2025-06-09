@@ -5,6 +5,7 @@ import copy
 import math
 import os
 import base64
+import asyncio
 from exceptions import GameOver, DiceReachedEnd
 try:
     from yaml import CLoader as Loader, CDumper as Dumper, load, dump
@@ -20,6 +21,8 @@ class token:
         self.current_block = None
         self.gesture_cont = None
 
+        self.hover_cont = None
+
         self.move_permitted = False
         self.reached_end = False
 
@@ -28,15 +31,18 @@ class token:
     def __repr__(self):
         return str(self.player) + "\t" + str(hash(self)) + "\t" + str(self.home_block)
 
-    def move(self,e=None):
+    async def move(self,e=None):
         disabled = False
+        animation_allowed = True
 
         num = eval(os.environ.get('dice_num'))
+        dimensions = eval(os.environ.get('dimensions'))
         if not self.move_permitted:
             print('Move not permitted !')
             return
         if self.home_block == self.current_block:
             num = 1
+            animation_allowed = False
         a = self.current_block
         for i in range(0,num):
             if not a.next_block:
@@ -51,10 +57,62 @@ class token:
                 else:
                     print('Moveed')
                     self.current_block = self.current_block.next_block
+                    if not animation_allowed:
+                        break
+                    gesture_cont_top = dimensions[1] + self.current_block.location[1] + math.fabs(self.current_block.dimension[1] - self.image.height)//2
+                    gesture_cont_left = dimensions[0] + self.current_block.location[0] + math.fabs(self.current_block.dimension[0] - self.image.width)//2
+                    hover_cont_top = dimensions[1] + self.current_block.location[1] - (self.image.height*9)//10 + math.fabs(self.current_block.dimension[1] - self.image.height)//2
+                    hover_cont_left = dimensions[0] + self.current_block.location[0] + math.fabs(self.current_block.dimension[0] - self.image.width)//2
 
-        dimensions = eval(os.environ.get('dimensions'))
+                    vary_top_g = (gesture_cont_top - self.gesture_cont.top)/24
+                    vary_left_g = (gesture_cont_left - self.gesture_cont.left)/24
+
+                    vary_top_h = (hover_cont_top - self.hover_cont.top)/24
+                    vary_left_h = (hover_cont_left - self.hover_cont.left)/24
+
+                    temp_width_g = self.gesture_cont.content.width
+                    temp_height_g = self.gesture_cont.content.height
+
+                    temp_width_h = self.hover_cont.content.width
+                    temp_height_h = self.hover_cont.content.height
+
+                    for i in range(24):
+                        self.gesture_cont.top = self.gesture_cont.top + vary_top_g
+                        self.gesture_cont.left = self.gesture_cont.left + vary_left_g
+                        self.hover_cont.top = self.hover_cont.top + vary_top_h
+                        self.hover_cont.left = self.hover_cont.left + vary_left_h
+                        if i%2!=0:
+                            if i<12:
+                                self.gesture_cont.top -= 1
+                                self.gesture_cont.left -=1
+                                self.hover_cont.top -=1
+                                self.hover_cont.left -=1
+
+                                self.gesture_cont.content.width +=1
+                                self.gesture_cont.content.height +=1
+                                self.hover_cont.content.width +=1
+                                self.hover_cont.content.height +=1
+
+                            else:
+                                self.gesture_cont.top += 1
+                                self.gesture_cont.left +=1
+                                self.hover_cont.top +=1
+                                self.hover_cont.left +=1
+
+                                self.gesture_cont.content.width -=1
+                                self.gesture_cont.content.height -=1
+                                self.hover_cont.content.width -=1
+                                self.hover_cont.content.height -=1
+
+                        self.page.update()
+                        await asyncio.sleep(0.005)
+                await asyncio.sleep(0.1)
+
         self.gesture_cont.top = dimensions[1] + self.current_block.location[1] + math.fabs(self.current_block.dimension[1] - self.image.height)//2
         self.gesture_cont.left = dimensions[0] + self.current_block.location[0] + math.fabs(self.current_block.dimension[0] - self.image.width)//2
+
+        self.hover_cont.top = dimensions[1] + self.current_block.location[1] - (self.image.height*9)//10 + math.fabs(self.current_block.dimension[1] - self.image.height)//2
+        self.hover_cont.left = dimensions[0] + self.current_block.location[0] + math.fabs(self.current_block.dimension[0] - self.image.width)//2
 
         self.player.disable_movement_for_tokens()
 
@@ -63,12 +121,13 @@ class token:
     def nothing(self,e=None):
         return
 
-    def create_token(self,image,page):
+    def create_token(self,image,image2,page):
         self.page = page
 
         if not self.current_block:
             raise GameOver("Token Image created before setting actual position on board !")
         self.image = copy.deepcopy(image)
+        self.hover_image = copy.deepcopy(image2)
 
         dimensions = eval(os.environ.get('dimensions'))
 
@@ -80,7 +139,15 @@ class token:
             left = dimensions[0] + self.current_block.location[0] + math.fabs(self.current_block.dimension[0] - self.image.width)//2,
         )
 
-        return self.gesture_cont
+        self.hover_cont = ft.GestureDetector(
+            mouse_cursor = ft.MouseCursor.CLICK,
+            on_tap = self.nothing,
+            content = self.hover_image,
+            top = dimensions[1] + self.current_block.location[1] - (self.image.height*9)//10 + math.fabs(self.current_block.dimension[1] - self.image.height)//2,
+            left = dimensions[0] + self.current_block.location[0] + math.fabs(self.current_block.dimension[0] - self.image.width)//2,
+        )
+
+        return (self.gesture_cont,self.hover_cont)
 class Player:
     num = 0
     dice = None
@@ -119,6 +186,8 @@ class Player:
         for i in self.tokens:
             i.move_permitted = False
             i.gesture_cont.on_tap = i.nothing
+            i.hover_cont.on_tap = i.nothing
+        
         self.dice.page.update()
     
     def __str__(self):
@@ -265,24 +334,19 @@ class Dice:
 
     def __init__(self,position,dimension,page,main_cont):
         self.page = page
-        self.main_cont = main_cont
-        for i in range(1,7):
-            with open(f'assets/dice_{i}.json','r',encoding='utf-8') as json_file:
-                data = json_file.read()
-            json_base64 = base64.b64encode(data.encode('utf-8')).decode('utf-8')
-            lottie = fl.Lottie(src_base64=json_base64,repeat = False,width=dimension[0], height=dimension[1])
-            self.cont.append(
-                ft.GestureDetector(
-                    content = lottie,
-                    mouse_cursor=ft.MouseCursor.CLICK,
-                    on_tap = self.nothing,
-                    left = position[0],
-                    top = position[1],
-                    width = dimension[0],
-                    height = dimension[1]
-                )
-            )
-        self.main_cont.controls.append(self.cont[self.number - 1])
+        with open('assets/dice_1.json','r',encoding='utf-8') as file:
+            data = file.read()
+        based = base64.b64encode(data.encode('utf-8')).decode('utf-8')
+        self.lottie = ft.Lottie(src_base64=based,repeat = False)
+        self.cont = ft.GestureDetector(
+            content = self.lottie,
+            mouse_cursor=ft.MouseCursor.CLICK,
+            on_tap = self.nothing,
+            left = position[0],
+            top = position[1],
+            width = dimension[0],
+            height = dimension[1]
+        )
         self.page.update()
 
     def nothing(self,e=None):
@@ -294,7 +358,11 @@ class Dice:
             raise GameOver("Bugs in the game guyz !")
         self.main_cont.controls.remove(self.cont[self.number - 1])
         self.number = random.randint(1,6)
-        self.main_cont.controls.append(self.cont[self.number - 1])
+        with open(f"assets/dice_{self.number}.json",'r',encoding='utf-8') as file:
+            data = file.read()
+        based = base64.b64encode(data.encode('utf-8')).decode('utf-8')
+        self.lottie.src_base64 = based 
+        self.cont.content = self.lottie
         self.page.update()
         os.environ['dice_num'] = str(self.number)
         for i in self.player_associated.tokens:
@@ -302,15 +370,14 @@ class Dice:
                 if not i.reached_end:
                     i.move_permitted = True
                     i.gesture_cont.on_tap = i.move
-                    print('6 number rolled')
-                    self.cont[self.number - 1].on_tap = self.nothing
-                    self.page.update()
+                    i.hover_cont.on_tap = i.move
+                    self.cont.on_tap = self.nothing
             else:
                 if not i.reached_end and i.home_block != i.current_block:
                     i.move_permitted = True
                     i.gesture_cont.on_tap = i.move
-                    print('not 6 number rolled')
-                    self.cont[self.number - 1].on_tap = self.nothing
+                    i.hover_cont.on_tap = i.move
+                    self.cont.on_tap = self.nothing
                     self.page.update()
         if self.number != 6:
             print('yehooooo')
