@@ -28,7 +28,6 @@ async def game(page,board_yaml_file):
     else:
         w = page.window.width
         h = page.window.height
-    print("w: ", w,"\nh: ",h)
 
 
     board_w = data.get('board_width')
@@ -36,7 +35,6 @@ async def game(page,board_yaml_file):
     cal_x = (w - board_w)//2
     cal_y = (h - board_h)//2
     os.environ['dimensions'] = str((cal_x, cal_y))
-    print("calx: ",cal_x,"\ncaly: ",cal_y)
 
     # Background Image
     bgimg = ft.Container(
@@ -101,9 +99,9 @@ async def game(page,board_yaml_file):
             cont.controls.append(container2)
     page.update()
 
-    dice = base.Dice([cal_x + board_w//2 - 38, cal_y + board_h + 20],[50,50],page,cont)
+    dice = base.Dice([cal_x + board_w//2 - 38, cal_y + board_h + 20],[50,50],page)
     
-    pl = ft.Text('None',size=30,left = cal_x + board_w//2 - 15, top = cal_y + board_h + 50)
+    pl = ft.Text('None',size=30,left = cal_x + board_w//2 - 15, top = cal_y + board_h + 85)
     cont.controls.append(dice.cont)
     cont.controls.append(pl)
 
@@ -113,12 +111,9 @@ async def game(page,board_yaml_file):
 
     # THE GAME PLAY
     player_in_turn = random.choice(players)
-    print('ALL PLAYERS: ',players)
-    print('Player in turn: ',player_in_turn)
+    print('Player in turn: ',player_in_turn.color.color)
     dice.associate_player(player_in_turn) #Very Important else GameOver error (check roll method of Dice class in base.py)
-    print('done once')
-    dice.cont[dice.number - 1].on_tap = dice.roll
-    pl.value = str(player_in_turn)
+    dice.cont.on_tap = dice.roll
     page.session.set('player_name',pl)
     page.session.set('game_running', False)
     page.update()
@@ -142,7 +137,5 @@ async def main(page: ft.Page):
 
     page.remove(bgimg)
     await asyncio.create_task(game(page,'assets/board_4.yaml'))
-
-    print("It's running")
 
 ft.app(main,assets_dir="assets")

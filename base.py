@@ -38,7 +38,6 @@ class token:
         num = eval(os.environ.get('dice_num'))
         dimensions = eval(os.environ.get('dimensions'))
         if not self.move_permitted:
-            print('Move not permitted !')
             return
         if self.home_block == self.current_block:
             num = 1
@@ -55,7 +54,6 @@ class token:
                 elif self.current_block.next_block == None:
                     raise DiceReachedEnd(self)
                 else:
-                    print('Moveed')
                     self.current_block = self.current_block.next_block
                     if not animation_allowed:
                         break
@@ -105,7 +103,7 @@ class token:
                                 self.hover_cont.content.height -=1
 
                         self.page.update()
-                        await asyncio.sleep(0.005)
+                        await asyncio.sleep(0.01)
                 await asyncio.sleep(0.1)
 
         self.gesture_cont.top = dimensions[1] + self.current_block.location[1] + math.fabs(self.current_block.dimension[1] - self.image.height)//2
@@ -181,8 +179,7 @@ class Player:
     def disable_movement_for_tokens(self):
         if not self.dice:
             raise GameOver('Bugs in the game guyz !')
-        print(f'dice back on roll:- {self.dice.number}')
-        self.dice.cont[self.dice.number - 1].on_tap = self.dice.roll
+        self.dice.cont.on_tap = self.dice.roll
         for i in self.tokens:
             i.move_permitted = False
             i.gesture_cont.on_tap = i.nothing
@@ -332,12 +329,12 @@ class Dice:
     number = 1
     cont = []
 
-    def __init__(self,position,dimension,page,main_cont):
+    def __init__(self,position,dimension,page):
         self.page = page
         with open('assets/dice_1.json','r',encoding='utf-8') as file:
             data = file.read()
         based = base64.b64encode(data.encode('utf-8')).decode('utf-8')
-        self.lottie = ft.Lottie(src_base64=based,repeat = False)
+        self.lottie = fl.Lottie(src_base64=based,repeat = False)
         self.cont = ft.GestureDetector(
             content = self.lottie,
             mouse_cursor=ft.MouseCursor.CLICK,
@@ -353,11 +350,10 @@ class Dice:
         return
 
     def roll(self,e=None):
-        print('ROLL CALLED ! ')
         if not self.player_associated:
             raise GameOver("Bugs in the game guyz !")
-        self.main_cont.controls.remove(self.cont[self.number - 1])
         self.number = random.randint(1,6)
+        print('NUMBER ROLLED: ',self.number)
         with open(f"assets/dice_{self.number}.json",'r',encoding='utf-8') as file:
             data = file.read()
         based = base64.b64encode(data.encode('utf-8')).decode('utf-8')
@@ -380,13 +376,11 @@ class Dice:
                     self.cont.on_tap = self.nothing
                     self.page.update()
         if self.number != 6:
-            print('yehooooo')
             players = self.page.session.get('players')
             self.associate_player(players[(players.index(self.player_associated) + 1)%len(players)])
-        print(self.cont)
+            print('Player in turn: ',self.player_associated.color.color)
         return self.number
     
     def associate_player(self,player):
-        print('DICE ASSOCIATED TO ',str(player))
         self.player_associated = player
         player.dice = self
