@@ -71,17 +71,18 @@ async def game(page,board_yaml_file):
     prev = 0
 
     # Randomizing color selection for players
+    colors_reserved = []
     for i in range(0,num_players):
         players.append(base.Player())
         if i % 2 == 0:
             a = random.choice(list(colors_left.keys()))
             prev = list(board.colors.keys()).index(a)
             players[-1].associate_color(colors_left[a])
-            colors_left.pop(a)
         else:
             a = list(board.colors.keys())[len(list(board.colors.keys())) - 1 - prev]
             players[-1].associate_color(colors_left[a])
-            colors_left.pop(a)
+        colors_reserved.append(colors_left[a])
+        colors_left.pop(a)
 
     page.session.set('players',players)
     page.session.set('tokens',{})
@@ -105,39 +106,44 @@ async def game(page,board_yaml_file):
     cont.controls.append(dice.cont)
     cont.controls.append(dice.lottie2)
 
-    player_frame = ft.Image(
-        "https://raw.githubusercontent.com/YogyaChugh/Ludo/master/assets/frame.jpg",
-        width = 115,
-        height = 57.5,
-        top = cal_y - 10 - 57.5,
-        left = cal_x + 20
-    )
-    player_frame2 = ft.Image(
-        "https://raw.githubusercontent.com/YogyaChugh/Ludo/master/assets/frame.jpg",
-        width = 115,
-        height = 57.5,
-        top = cal_y - 10 - 57.5,
-        left = cal_x + 24*9 + (24*6 - 115) - 20
-    )
-    player_frame3 = ft.Image(
-        "https://raw.githubusercontent.com/YogyaChugh/Ludo/master/assets/frame.jpg",
-        width = 115,
-        height = 57.5,
-        top = cal_y + data.get('board_height') + 10,
-        left = cal_x + 20
-    )
-    player_frame4 = ft.Image(
-        "https://raw.githubusercontent.com/YogyaChugh/Ludo/master/assets/frame.jpg",
-        width = 115,
-        height = 57.5,
-        top = cal_y + data.get('board_height') + 10,
-        left = cal_x + 24*9 + (24*6 - 115) - 20
-    )
-    
-    cont.controls.append(player_frame)
-    cont.controls.append(player_frame2)
-    cont.controls.append(player_frame3)
-    cont.controls.append(player_frame4)
+    if 'red' in colors_reserved:
+        player_frame = ft.Image(
+            "https://raw.githubusercontent.com/YogyaChugh/Ludo/master/assets/frame_red.jpg",
+            width = 115,
+            height = 57.5,
+            top = cal_y - 10 - 57.5,
+            left = cal_x + 20
+        )
+        cont.controls.append(player_frame)
+    if 'green' in colors_reserved:
+        player_frame2 = ft.Image(
+            "https://raw.githubusercontent.com/YogyaChugh/Ludo/master/assets/frame_yello.jpg",
+            width = 115,
+            height = 57.5,
+            top = cal_y - 10 - 57.5,
+            left = cal_x + 24*9 + (24*6 - 115) - 20,
+            rotate=3.14159
+        )
+        cont.controls.append(player_frame2)
+    if 'blue' in colors_reserved:
+        player_frame3 = ft.Image(
+            "https://raw.githubusercontent.com/YogyaChugh/Ludo/master/assets/frame.jpg",
+            width = 115,
+            height = 57.5,
+            top = cal_y + data.get('board_height') + 10,
+            left = cal_x + 20
+        )
+        cont.controls.append(player_frame3)
+    if 'yellow' in colors_reserved:
+        player_frame4 = ft.Image(
+            "https://raw.githubusercontent.com/YogyaChugh/Ludo/master/assets/frame.jpg",
+            width = 115,
+            height = 57.5,
+            top = cal_y + data.get('board_height') + 10,
+            left = cal_x + 24*9 + (24*6 - 115) - 20,
+            rotate=3.14159
+        )
+        cont.controls.append(player_frame4)
 
     bgimg.content = cont
     page.add(bgimg)
@@ -162,7 +168,7 @@ async def main(page: ft.Page):
     page.session.set('game_running',False)
 
     bgimg = ft.Container(
-        image = ft.DecorationImage('lander.png', fit = ft.ImageFit.FILL, opacity=0.8),
+        image = ft.DecorationImage('https://raw.githubusercontent.com/YogyaChugh/Ludo/master/assets/lander.png', fit = ft.ImageFit.FILL, opacity=0.8),
         expand = True
     )
     page.add(bgimg)
