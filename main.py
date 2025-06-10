@@ -105,6 +105,40 @@ async def game(page,board_yaml_file):
     cont.controls.append(dice.cont)
     cont.controls.append(dice.lottie2)
 
+    player_frame = ft.Image(
+        "https://raw.githubusercontent.com/YogyaChugh/Ludo/master/assets/player_frame.jpg",
+        width = 115,
+        height = 140,
+        top = cal_y - 10 - 140,
+        left = cal_x + (24*6 - 115)//2
+    )
+    player_frame2 = ft.Image(
+        "https://raw.githubusercontent.com/YogyaChugh/Ludo/master/assets/player_frame.jpg",
+        width = 115,
+        height = 140,
+        top = cal_y - 10 - 140,
+        left = cal_x + 24*9 + (24*6 - 115)//2
+    )
+    player_frame3 = ft.Image(
+        "https://raw.githubusercontent.com/YogyaChugh/Ludo/master/assets/player_frame.jpg",
+        width = 115,
+        height = 140,
+        top = cal_y + data.get('board_height') + 10,
+        left = cal_x + (24*6 - 115)//2
+    )
+    player_frame4 = ft.Image(
+        "https://raw.githubusercontent.com/YogyaChugh/Ludo/master/assets/player_frame.jpg",
+        width = 115,
+        height = 140,
+        top = cal_y + data.get('board_height') + 10,
+        left = cal_x + 24*9 + (24*6 - 115)//2
+    )
+    
+    cont.controls.append(player_frame)
+    cont.controls.append(player_frame2)
+    cont.controls.append(player_frame3)
+    cont.controls.append(player_frame4)
+
     bgimg.content = cont
     page.add(bgimg)
     page.update()
