@@ -71,7 +71,6 @@ async def game(page,board_yaml_file):
     prev = 0
 
     # Randomizing color selection for players
-    colors_reserved = []
     for i in range(0,num_players):
         players.append(base.Player())
         if i % 2 == 0:
@@ -81,7 +80,6 @@ async def game(page,board_yaml_file):
         else:
             a = list(board.colors.keys())[len(list(board.colors.keys())) - 1 - prev]
             players[-1].associate_color(colors_left[a])
-        colors_reserved.append(colors_left[a])
         colors_left.pop(a)
 
     page.session.set('players',players)
@@ -100,59 +98,37 @@ async def game(page,board_yaml_file):
             cont.controls.append(container2)
     page.update()
 
-    dice = base.Dice([cal_x + board_w//2 - 28, cal_y + board_h + 20],[50,50],page)
+    dice = base.Dice([cal_x + board_w//2 - 28, cal_y + board_h + 20],[50,50],page,data)
     
     pl = ft.Text('None',size=30,left = cal_x + board_w//2 - 15, top = cal_y + board_h + 85)
     cont.controls.append(dice.cont)
     cont.controls.append(dice.lottie2)
 
-    if 'red' in colors_reserved:
+    frames = data.get('frames')
+
+    for i in players:
+        color = i.color.color
         player_frame = ft.Image(
-            "https://raw.githubusercontent.com/YogyaChugh/Ludo/master/assets/frame_red.jpg",
-            width = 115,
-            height = 57.5,
-            top = cal_y - 10 - 57.5,
-            left = cal_x + 20
+            f"https://raw.githubusercontent.com/YogyaChugh/Ludo/master/assets/frame_{color}.jpg",
+            width = frames[color]['w'],
+            height = frames[color]['h'],
+            top = cal_y + frames[color]['y'],
+            left = cal_x + frames[color]['x']
         )
-        cont.controls.append(player_frame)
-    if 'green' in colors_reserved:
-        player_frame2 = ft.Image(
-            "https://raw.githubusercontent.com/YogyaChugh/Ludo/master/assets/frame_yello.jpg",
-            width = 115,
-            height = 57.5,
-            top = cal_y - 10 - 57.5,
-            left = cal_x + 24*9 + (24*6 - 115) - 20,
-            rotate=3.14159
-        )
-        cont.controls.append(player_frame2)
-    if 'blue' in colors_reserved:
-        player_frame3 = ft.Image(
-            "https://raw.githubusercontent.com/YogyaChugh/Ludo/master/assets/frame.jpg",
-            width = 115,
-            height = 57.5,
-            top = cal_y + data.get('board_height') + 10,
-            left = cal_x + 20
-        )
-        cont.controls.append(player_frame3)
-    if 'yellow' in colors_reserved:
-        player_frame4 = ft.Image(
-            "https://raw.githubusercontent.com/YogyaChugh/Ludo/master/assets/frame.jpg",
-            width = 115,
-            height = 57.5,
-            top = cal_y + data.get('board_height') + 10,
-            left = cal_x + 24*9 + (24*6 - 115) - 20,
-            rotate=3.14159
-        )
-        cont.controls.append(player_frame4)
+        i.frame = player_frame
+        cont.controls.append(i.frame)
+    
+    cont.controls.append(dice.dice_image)
 
     bgimg.content = cont
     page.add(bgimg)
-    page.update()
+
 
     # THE GAME PLAY
     player_in_turn = random.choice(players)
     print('Player in turn: ',player_in_turn.color.color)
     dice.associate_player(player_in_turn) #Very Important else GameOver error (check roll method of Dice class in base.py)
+    dice.update_dice_locs()
     dice.cont.on_tap = dice.roll
     page.session.set('player_name',pl)
     page.session.set('game_running', False)

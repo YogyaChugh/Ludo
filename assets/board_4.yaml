@@ -18,6 +18,34 @@ colors:
   - blue
   - yellow
 
+frames:
+  red:
+    x: 15
+    y: -67.5
+    w: 112.5
+    h: 57.5
+  green:
+    x: 232.5
+    y: -67.5
+    w: 112.5
+    h: 57.5
+  blue:
+    x: 15
+    y: 370
+    w: 112.5
+    h: 57.5
+  yellow:
+    x: 232.5
+    y: 370
+    w: 112.5
+    h: 57.5
+
+dice:
+  x: 58
+  y: 2.75
+  w: 52
+  h: 52
+
 
 base_positions:
   red:

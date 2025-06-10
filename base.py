@@ -177,6 +177,8 @@ class token:
 class Player:
     num = 0
     dice = None
+    frame = None
+
     def __init__(self,**kwargs):
         if not kwargs.get('name'):
             self.name = f"Player {Player.num+1}"
@@ -213,6 +215,7 @@ class Player:
             i.gesture_cont.on_tap = i.nothing
             i.hover_cont.on_tap = i.nothing
         
+        self.dice.update_dice_locs()
         self.dice.page.update()
     
     def __str__(self):
@@ -357,22 +360,16 @@ class Dice:
     number = 1
     cont = []
 
-    def __init__(self,position,dimension,page):
+    def __init__(self,position,dimension,page,data):
         self.page = page
-        self.lottie = ft.Container(
-            content=ft.Text('None', size=20, weight=ft.FontWeight.BOLD, color="white"),
-            width=50,
-            height=30,
-            alignment=ft.alignment.center,
-            bgcolor="bluegrey600",
-            border_radius=12,
-            padding=10,
-            shadow=ft.BoxShadow(
-                blur_radius=10,
-                color=ft.Colors.BLACK38,
-                offset=ft.Offset(4, 4),
-                spread_radius=1
-            )
+
+        self.data = data
+
+        self.dice_image = ft.Image(
+            "https://raw.githubusercontent.com/YogyaChugh/Ludo/master/assets/dice_1.jpg",
+            width=data['dice']['w'],
+            height=data['dice']['h'],
+            gapless_playback=True,
         )
         self.lottie2 = ft.Container(
             content=ft.Text('Player: None', size=20, weight=ft.FontWeight.BOLD, color="white"),
@@ -392,13 +389,13 @@ class Dice:
             top = position[1] + 70
         )
         self.cont = ft.GestureDetector(
-            content = self.lottie,
+            content = self.dice_image,
             mouse_cursor=ft.MouseCursor.CLICK,
             on_tap = self.nothing,
-            left = position[0],
-            top = position[1],
-            width = dimension[0],
-            height = dimension[1]
+            left = 10,
+            top = 10,
+            width = self.dice_image.width,
+            height = self.dice_image.height
         )
         self.page.update()
 
@@ -409,8 +406,8 @@ class Dice:
         if not self.player_associated:
             raise GameOver("Bugs in the game guyz !")
         self.number = random.randint(1,6)
+        await self.animate_and_display_num()
         print('NUMBER ROLLED: ',self.number)
-        self.lottie.content.value = self.number
         self.lottie2.content.value = self.player_associated.color.color
         self.page.update()
         os.environ['dice_num'] = str(self.number)
@@ -441,8 +438,25 @@ class Dice:
             players = self.page.session.get('players')
             self.associate_player(players[(players.index(self.player_associated) + 1)%len(players)])
             print('Player in turn: ',self.player_associated.color.color)
+        
+        if num==0:
+            self.update_dice_locs
+
         return self.number
     
     def associate_player(self,player):
         self.player_associated = player
         player.dice = self
+
+    def update_dice_locs(self):
+        self.dice_image.top = self.player_associated.frame.top + self.data['dice']['y']
+        self.dice_image.left = self.player_associated.frame.left + self.data['dice']['x']
+        self.page.update()
+
+    async def animate_and_display_num(self):
+        for i in range(1,7):
+            self.dice_image.src = f"https://raw.githubusercontent.com/YogyaChugh/Ludo/master/assets/dice_roll_images/{i}.jpg"
+            self.page.update()
+            await asyncio.sleep(0.1)
+        self.dice_image.src = f"https://raw.githubusercontent.com/YogyaChugh/Ludo/master/assets/dice_{self.number}.jpg"
+        self.page.update()
