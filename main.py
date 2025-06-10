@@ -1,5 +1,4 @@
 import flet as ft
-import flet_lottie as fl
 import base
 import asyncio
 import copy
@@ -85,6 +84,7 @@ async def game(page,board_yaml_file):
             colors_left.pop(a)
 
     page.session.set('players',players)
+    page.session.set('tokens',{})
 
     # Generating Player tokens and handling click events
     for i in players:
@@ -99,11 +99,11 @@ async def game(page,board_yaml_file):
             cont.controls.append(container2)
     page.update()
 
-    dice = base.Dice([cal_x + board_w//2 - 38, cal_y + board_h + 20],[50,50],page)
+    dice = base.Dice([cal_x + board_w//2 - 28, cal_y + board_h + 20],[50,50],page)
     
     pl = ft.Text('None',size=30,left = cal_x + board_w//2 - 15, top = cal_y + board_h + 85)
     cont.controls.append(dice.cont)
-    cont.controls.append(pl)
+    cont.controls.append(dice.lottie2)
 
     bgimg.content = cont
     page.add(bgimg)
@@ -124,7 +124,7 @@ async def main(page: ft.Page):
     page.window.resizable = False
     page.padding = 0
     page.update()
-    os.environ['num_players'] = '4'
+    os.environ['num_players'] = '2'
     page.session.set('game_running',False)
 
     bgimg = ft.Container(

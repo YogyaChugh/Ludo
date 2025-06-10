@@ -1,10 +1,8 @@
 import random
 import flet as ft
-import flet_lottie as fl
 import copy
 import math
 import os
-import base64
 import asyncio
 from exceptions import GameOver, DiceReachedEnd
 try:
@@ -46,6 +44,7 @@ class token:
         for i in range(0,num):
             if not a.next_block:
                 disabled = True
+                break
             a = a.next_block
         if not disabled:
             for i in range(0,num):
@@ -67,13 +66,6 @@ class token:
 
                     vary_top_h = (hover_cont_top - self.hover_cont.top)/24
                     vary_left_h = (hover_cont_left - self.hover_cont.left)/24
-
-                    temp_width_g = self.gesture_cont.content.width
-                    temp_height_g = self.gesture_cont.content.height
-
-                    temp_width_h = self.hover_cont.content.width
-                    temp_height_h = self.hover_cont.content.height
-
                     for i in range(24):
                         self.gesture_cont.top = self.gesture_cont.top + vary_top_g
                         self.gesture_cont.left = self.gesture_cont.left + vary_left_g
@@ -103,8 +95,17 @@ class token:
                                 self.hover_cont.content.height -=1
 
                         self.page.update()
-                        await asyncio.sleep(0.01)
+                        await asyncio.sleep(0.002)
                 await asyncio.sleep(0.1)
+
+        temp = self.page.session.get('tokens')
+        for p in temp:
+            if self.current_block == temp[p] and not temp[p].safe and not p.player==self.player:
+                temp[p] = p.home_block
+                await p.return_home()
+        
+        temp[self] = self.current_block
+        self.page.session.set('tokens',temp)
 
         self.gesture_cont.top = dimensions[1] + self.current_block.location[1] + math.fabs(self.current_block.dimension[1] - self.image.height)//2
         self.gesture_cont.left = dimensions[0] + self.current_block.location[0] + math.fabs(self.current_block.dimension[0] - self.image.width)//2
@@ -118,9 +119,36 @@ class token:
 
     def nothing(self,e=None):
         return
+    
+    async def return_home(self):
+        dimensions = eval(os.environ.get('dimensions'))
+        while self.current_block != self.player.color.start_block:
+            self.current_block = self.current_block.prev_block
+            self.gesture_cont.top = dimensions[1] + self.current_block.location[1] + math.fabs(self.current_block.dimension[1] - self.image.height)//2
+            self.gesture_cont.left = dimensions[0] + self.current_block.location[0] + math.fabs(self.current_block.dimension[0] - self.image.width)//2
+
+            self.hover_cont.top = dimensions[1] + self.current_block.location[1] - (self.image.height*9)//10 + math.fabs(self.current_block.dimension[1] - self.image.height)//2
+            self.hover_cont.left = dimensions[0] + self.current_block.location[0] + math.fabs(self.current_block.dimension[0] - self.image.width)//2
+
+            self.page.update()
+
+            await asyncio.sleep(0.037)
+            
+        self.current_block = self.home_block
+
+        self.gesture_cont.top = dimensions[1] + self.current_block.location[1] + math.fabs(self.current_block.dimension[1] - self.image.height)//2
+        self.gesture_cont.left = dimensions[0] + self.current_block.location[0] + math.fabs(self.current_block.dimension[0] - self.image.width)//2
+        self.hover_cont.top = dimensions[1] + self.current_block.location[1] - (self.image.height*9)//10 + math.fabs(self.current_block.dimension[1] - self.image.height)//2
+        self.hover_cont.left = dimensions[0] + self.current_block.location[0] + math.fabs(self.current_block.dimension[0] - self.image.width)//2
+
+        self.page.update()
 
     def create_token(self,image,image2,page):
         self.page = page
+
+        a = self.page.session.get('tokens')
+        a[self] = self.current_block
+        self.page.session.set('tokens',a)
 
         if not self.current_block:
             raise GameOver("Token Image created before setting actual position on board !")
@@ -331,10 +359,38 @@ class Dice:
 
     def __init__(self,position,dimension,page):
         self.page = page
-        with open('assets/dice_1.json','r',encoding='utf-8') as file:
-            data = file.read()
-        based = base64.b64encode(data.encode('utf-8')).decode('utf-8')
-        self.lottie = fl.Lottie(src_base64=based,repeat = False)
+        self.lottie = ft.Container(
+            content=ft.Text('None', size=20, weight=ft.FontWeight.BOLD, color="white"),
+            width=50,
+            height=30,
+            alignment=ft.alignment.center,
+            bgcolor="bluegrey600",
+            border_radius=12,
+            padding=10,
+            shadow=ft.BoxShadow(
+                blur_radius=10,
+                color=ft.Colors.BLACK38,
+                offset=ft.Offset(4, 4),
+                spread_radius=1
+            )
+        )
+        self.lottie2 = ft.Container(
+            content=ft.Text('Player: None', size=20, weight=ft.FontWeight.BOLD, color="white"),
+            width=200,
+            height=50,
+            alignment=ft.alignment.center,
+            bgcolor="bluegrey600",
+            border_radius=12,
+            padding=10,
+            shadow=ft.BoxShadow(
+                blur_radius=10,
+                color=ft.Colors.BLACK38,
+                offset=ft.Offset(4, 4),
+                spread_radius=1
+            ),
+            left = position[0] - 70,
+            top = position[1] + 70
+        )
         self.cont = ft.GestureDetector(
             content = self.lottie,
             mouse_cursor=ft.MouseCursor.CLICK,
@@ -349,32 +405,38 @@ class Dice:
     def nothing(self,e=None):
         return
 
-    def roll(self,e=None):
+    async def roll(self,e=None):
         if not self.player_associated:
             raise GameOver("Bugs in the game guyz !")
         self.number = random.randint(1,6)
         print('NUMBER ROLLED: ',self.number)
-        with open(f"assets/dice_{self.number}.json",'r',encoding='utf-8') as file:
-            data = file.read()
-        based = base64.b64encode(data.encode('utf-8')).decode('utf-8')
-        self.lottie.src_base64 = based 
-        self.cont.content = self.lottie
+        self.lottie.content.value = self.number
+        self.lottie2.content.value = self.player_associated.color.color
         self.page.update()
         os.environ['dice_num'] = str(self.number)
+        num = 0
+        lasti = None
         for i in self.player_associated.tokens:
             if self.number == 6:
                 if not i.reached_end:
+                    num +=1
+                    lasti = i
                     i.move_permitted = True
                     i.gesture_cont.on_tap = i.move
                     i.hover_cont.on_tap = i.move
                     self.cont.on_tap = self.nothing
             else:
                 if not i.reached_end and i.home_block != i.current_block:
+                    num +=1
+                    lasti = i
                     i.move_permitted = True
                     i.gesture_cont.on_tap = i.move
                     i.hover_cont.on_tap = i.move
                     self.cont.on_tap = self.nothing
                     self.page.update()
+        if num==1:
+            await asyncio.sleep(0.4)
+            await lasti.move()
         if self.number != 6:
             players = self.page.session.get('players')
             self.associate_player(players[(players.index(self.player_associated) + 1)%len(players)])

@@ -4,5 +4,4 @@ android = false
 [tool.flet.android]
 min_sdk_version = 21
 target_sdk_version = 34
-adaptive_icon_background = "C:/Users/Lenovo/OneDrive/Desktop/CODE THE IMPOSSIBLE/LUDO/assets/ludo-game.png"
-dependencies = ['flet-lottie','flet','certifi','pyyaml']
+dependencies = ['flet','certifi','pyyaml']
