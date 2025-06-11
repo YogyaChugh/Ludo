@@ -412,7 +412,7 @@ class Dice:
         scale = page.session.get('scale')
 
         self.dice_image = ft.Image(
-            "https://raw.githubusercontent.com/YogyaChugh/Ludo/master/assets/dice_1.jpg",
+            "dice_1.jpg",
             width=data['dice']['w']*scale,
             height=data['dice']['h']*scale,
             gapless_playback=True,
@@ -503,8 +503,8 @@ class Dice:
 
     async def animate_and_display_num(self):
         for i in range(1,7):
-            self.dice_image.src = f"https://raw.githubusercontent.com/YogyaChugh/Ludo/master/assets/dice_roll_images/{i}.jpg"
+            self.dice_image.src = f"dice_roll_images/{i}.jpg"
             self.page.update()
             await asyncio.sleep(0.1)
-        self.dice_image.src = f"https://raw.githubusercontent.com/YogyaChugh/Ludo/master/assets/dice_{self.number}.jpg"
+        self.dice_image.src = f"dice_{self.number}.jpg"
         self.page.update()
