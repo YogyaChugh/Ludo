@@ -9,7 +9,7 @@ dice_base_width: 22
 dice_base_height: 22
 
 asset_board: 'board_4.jpg'
-bg_image: 'background.png'
+bg_image: 'bg.png'
 asset_dice_base: 'base.png'
 
 colors:
@@ -17,6 +17,10 @@ colors:
   - green
   - blue
   - yellow
+
+tokens:
+  w: 22
+  h: 30
 
 frames:
   red:

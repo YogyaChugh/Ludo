@@ -4,8 +4,8 @@ class GameOver(Exception):
         super().__init__(self.message)
         
 
-class DiceReachedEnd(Exception):
-    def __init__(self,dice):
-        self.message = "Dice Reached End !"
-        self.dice = dice
+class PlayerReachedEnd(Exception):
+    def __init__(self,player):
+        self.message = "Player Reached End !"
+        self.player = player
         super().__init__(self.message)

@@ -2,3 +2,4 @@ build/
 storage/
 .vscode/
 __pycache__/
+.env

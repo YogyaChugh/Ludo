@@ -4,14 +4,14 @@ import copy
 import math
 import os
 import asyncio
-from exceptions import GameOver, DiceReachedEnd
+from exceptions import GameOver, PlayerReachedEnd
 try:
     from yaml import CLoader as Loader, CDumper as Dumper, load, dump
 except ImportError:
     from yaml import Loader, Dumper, load, dump
 
 class token:
-    def __init__(self,player):
+    def __init__(self,player,page):
         if not isinstance(player, Player):
             raise GameOver("Bugs in the game guyz !")
         self.player = player
@@ -24,14 +24,18 @@ class token:
         self.move_permitted = False
         self.reached_end = False
 
-        self.page = None
+        self.page = page
     
     def __repr__(self):
         return str(self.player) + "\t" + str(hash(self)) + "\t" + str(self.home_block)
 
     async def move(self,e=None):
+        self.gesture_cont.on_tap = self.nothing
+        self.hover_cont.on_tap = self.nothing
         disabled = False
         animation_allowed = True
+
+        scale = self.page.session.get('scale')
 
         num = eval(os.environ.get('dice_num'))
         dimensions = eval(os.environ.get('dimensions'))
@@ -41,31 +45,27 @@ class token:
             num = 1
             animation_allowed = False
         a = self.current_block
-        for i in range(0,num):
-            if not a.next_block:
-                disabled = True
-                break
-            a = a.next_block
         if not disabled:
             for i in range(0,num):
+                if self.current_block.next_block.next_block == None:
+                    self.reached_end = True
+                    self.player.reached_end(self)
                 if self.current_block == self.player.color.last_path_block:
                     self.current_block = self.player.color.end_entry_block
-                elif self.current_block.next_block == None:
-                    raise DiceReachedEnd(self)
                 else:
                     self.current_block = self.current_block.next_block
                     if not animation_allowed:
                         break
-                    gesture_cont_top = dimensions[1] + self.current_block.location[1] + math.fabs(self.current_block.dimension[1] - self.image.height)//2
-                    gesture_cont_left = dimensions[0] + self.current_block.location[0] + math.fabs(self.current_block.dimension[0] - self.image.width)//2
-                    hover_cont_top = dimensions[1] + self.current_block.location[1] - (self.image.height*9)//10 + math.fabs(self.current_block.dimension[1] - self.image.height)//2
-                    hover_cont_left = dimensions[0] + self.current_block.location[0] + math.fabs(self.current_block.dimension[0] - self.image.width)//2
+                    gesture_cont_top = dimensions[1] + self.current_block.location[1]*scale + math.fabs(self.current_block.dimension[1]*scale - self.image.height)//2
+                    gesture_cont_left = dimensions[0] + self.current_block.location[0]*scale + math.fabs(self.current_block.dimension[0]*scale - self.image.width)//2
+                    hover_cont_top = dimensions[1] + self.current_block.location[1]*scale - (self.image.height*9)//10 + math.fabs(self.current_block.dimension[1]*scale - self.image.height)//2
+                    hover_cont_left = dimensions[0] + self.current_block.location[0]*scale + math.fabs(self.current_block.dimension[0]*scale - self.image.width)//2
 
-                    vary_top_g = (gesture_cont_top - self.gesture_cont.top)/24
-                    vary_left_g = (gesture_cont_left - self.gesture_cont.left)/24
+                    vary_top_g = (gesture_cont_top - self.gesture_cont.top)/(self.page.session.get('data').get('block_height')*scale)
+                    vary_left_g = (gesture_cont_left - self.gesture_cont.left)/(self.page.session.get('data').get('block_width')*scale)
 
-                    vary_top_h = (hover_cont_top - self.hover_cont.top)/24
-                    vary_left_h = (hover_cont_left - self.hover_cont.left)/24
+                    vary_top_h = (hover_cont_top - self.hover_cont.top)/(self.page.session.get('data').get('block_height')*scale)
+                    vary_left_h = (hover_cont_left - self.hover_cont.left)/(self.page.session.get('data').get('block_width')*scale)
                     for i in range(24):
                         self.gesture_cont.top = self.gesture_cont.top + vary_top_g
                         self.gesture_cont.left = self.gesture_cont.left + vary_left_g
@@ -73,26 +73,26 @@ class token:
                         self.hover_cont.left = self.hover_cont.left + vary_left_h
                         if i%2!=0:
                             if i<12:
-                                self.gesture_cont.top -= 1
-                                self.gesture_cont.left -=1
-                                self.hover_cont.top -=1
-                                self.hover_cont.left -=1
+                                self.gesture_cont.top -= 1*scale
+                                self.gesture_cont.left -=1*scale
+                                self.hover_cont.top -=1*scale
+                                self.hover_cont.left -=1*scale
 
-                                self.gesture_cont.content.width +=1
-                                self.gesture_cont.content.height +=1
-                                self.hover_cont.content.width +=1
-                                self.hover_cont.content.height +=1
+                                self.gesture_cont.content.width +=1*scale
+                                self.gesture_cont.content.height +=1*scale
+                                self.hover_cont.content.width +=1*scale
+                                self.hover_cont.content.height +=1*scale
 
                             else:
-                                self.gesture_cont.top += 1
-                                self.gesture_cont.left +=1
-                                self.hover_cont.top +=1
-                                self.hover_cont.left +=1
+                                self.gesture_cont.top += 1*scale
+                                self.gesture_cont.left +=1*scale
+                                self.hover_cont.top +=1*scale
+                                self.hover_cont.left +=1*scale
 
-                                self.gesture_cont.content.width -=1
-                                self.gesture_cont.content.height -=1
-                                self.hover_cont.content.width -=1
-                                self.hover_cont.content.height -=1
+                                self.gesture_cont.content.width -=1*scale
+                                self.gesture_cont.content.height -=1*scale
+                                self.hover_cont.content.width -=1*scale
+                                self.hover_cont.content.height -=1*scale
 
                         self.page.update()
                         await asyncio.sleep(0.002)
@@ -107,11 +107,11 @@ class token:
         temp[self] = self.current_block
         self.page.session.set('tokens',temp)
 
-        self.gesture_cont.top = dimensions[1] + self.current_block.location[1] + math.fabs(self.current_block.dimension[1] - self.image.height)//2
-        self.gesture_cont.left = dimensions[0] + self.current_block.location[0] + math.fabs(self.current_block.dimension[0] - self.image.width)//2
+        self.gesture_cont.top = dimensions[1] + self.current_block.location[1]*scale + math.fabs(self.current_block.dimension[1]*scale - self.image.height)//2
+        self.gesture_cont.left = dimensions[0] + self.current_block.location[0]*scale + math.fabs(self.current_block.dimension[0]*scale - self.image.width)//2
 
-        self.hover_cont.top = dimensions[1] + self.current_block.location[1] - (self.image.height*9)//10 + math.fabs(self.current_block.dimension[1] - self.image.height)//2
-        self.hover_cont.left = dimensions[0] + self.current_block.location[0] + math.fabs(self.current_block.dimension[0] - self.image.width)//2
+        self.hover_cont.top = dimensions[1] + self.current_block.location[1]*scale - (self.image.height*9)//10 + math.fabs(self.current_block.dimension[1]*scale - self.image.height)//2
+        self.hover_cont.left = dimensions[0] + self.current_block.location[0]*scale + math.fabs(self.current_block.dimension[0]*scale - self.image.width)//2
 
         self.player.disable_movement_for_tokens()
 
@@ -124,11 +124,12 @@ class token:
         dimensions = eval(os.environ.get('dimensions'))
         while self.current_block != self.player.color.start_block:
             self.current_block = self.current_block.prev_block
-            self.gesture_cont.top = dimensions[1] + self.current_block.location[1] + math.fabs(self.current_block.dimension[1] - self.image.height)//2
-            self.gesture_cont.left = dimensions[0] + self.current_block.location[0] + math.fabs(self.current_block.dimension[0] - self.image.width)//2
+            scale = self.page.session.get('scale')
+            self.gesture_cont.top = dimensions[1] + self.current_block.location[1]*scale + math.fabs(self.current_block.dimension[1]*scale - self.image.height)//2
+            self.gesture_cont.left = dimensions[0] + self.current_block.location[0]*scale + math.fabs(self.current_block.dimension[0]*scale - self.image.width)//2
 
-            self.hover_cont.top = dimensions[1] + self.current_block.location[1] - (self.image.height*9)//10 + math.fabs(self.current_block.dimension[1] - self.image.height)//2
-            self.hover_cont.left = dimensions[0] + self.current_block.location[0] + math.fabs(self.current_block.dimension[0] - self.image.width)//2
+            self.hover_cont.top = dimensions[1] + self.current_block.location[1]*scale - (self.image.height*9)//10 + math.fabs(self.current_block.dimension[1]*scale - self.image.height)//2
+            self.hover_cont.left = dimensions[0] + self.current_block.location[0]*scale + math.fabs(self.current_block.dimension[0]*scale - self.image.width)//2
 
             self.page.update()
 
@@ -136,15 +137,14 @@ class token:
             
         self.current_block = self.home_block
 
-        self.gesture_cont.top = dimensions[1] + self.current_block.location[1] + math.fabs(self.current_block.dimension[1] - self.image.height)//2
-        self.gesture_cont.left = dimensions[0] + self.current_block.location[0] + math.fabs(self.current_block.dimension[0] - self.image.width)//2
-        self.hover_cont.top = dimensions[1] + self.current_block.location[1] - (self.image.height*9)//10 + math.fabs(self.current_block.dimension[1] - self.image.height)//2
-        self.hover_cont.left = dimensions[0] + self.current_block.location[0] + math.fabs(self.current_block.dimension[0] - self.image.width)//2
+        self.gesture_cont.top = dimensions[1] + self.current_block.location[1]*scale + math.fabs(self.current_block.dimension[1]*scale - self.image.height)//2
+        self.gesture_cont.left = dimensions[0] + self.current_block.location[0]*scale + math.fabs(self.current_block.dimension[0]*scale - self.image.width)//2
+        self.hover_cont.top = dimensions[1] + self.current_block.location[1]*scale - (self.image.height*9)//10 + math.fabs(self.current_block.dimension[1]*scale - self.image.height)//2
+        self.hover_cont.left = dimensions[0] + self.current_block.location[0]*scale + math.fabs(self.current_block.dimension[0]*scale - self.image.width)//2
 
         self.page.update()
 
-    def create_token(self,image,image2,page):
-        self.page = page
+    def create_token(self,image,image2):
 
         a = self.page.session.get('tokens')
         a[self] = self.current_block
@@ -157,20 +157,22 @@ class token:
 
         dimensions = eval(os.environ.get('dimensions'))
 
+        scale = self.page.session.get('scale')
+
         self.gesture_cont = ft.GestureDetector(
             mouse_cursor = ft.MouseCursor.CLICK,
             on_tap = self.nothing,
             content = self.image,
-            top = dimensions[1] + self.current_block.location[1] + math.fabs(self.current_block.dimension[1] - self.image.height)//2,
-            left = dimensions[0] + self.current_block.location[0] + math.fabs(self.current_block.dimension[0] - self.image.width)//2,
+            top = dimensions[1] + self.current_block.location[1]*scale + math.fabs(self.current_block.dimension[1]*scale - self.image.height)//2,
+            left = dimensions[0] + self.current_block.location[0]*scale + math.fabs(self.current_block.dimension[0]*scale - self.image.width)//2,
         )
 
         self.hover_cont = ft.GestureDetector(
             mouse_cursor = ft.MouseCursor.CLICK,
             on_tap = self.nothing,
             content = self.hover_image,
-            top = dimensions[1] + self.current_block.location[1] - (self.image.height*9)//10 + math.fabs(self.current_block.dimension[1] - self.image.height)//2,
-            left = dimensions[0] + self.current_block.location[0] + math.fabs(self.current_block.dimension[0] - self.image.width)//2,
+            top = dimensions[1] + self.current_block.location[1]*scale - (self.image.height*9)//10 + math.fabs(self.current_block.dimension[1]*scale - self.image.height)//2,
+            left = dimensions[0] + self.current_block.location[0]*scale + math.fabs(self.current_block.dimension[0]*scale - self.image.width)//2,
         )
 
         return (self.gesture_cont,self.hover_cont)
@@ -179,7 +181,10 @@ class Player:
     dice = None
     frame = None
 
-    def __init__(self,**kwargs):
+    def __init__(self,page,**kwargs):
+        self.page = page
+
+        self.data = self.page.session.get('data')
         if not kwargs.get('name'):
             self.name = f"Player {Player.num+1}"
             Player.num += 1
@@ -190,13 +195,45 @@ class Player:
             self.num_tokens = 4
         else:
             self.num_tokens = kwargs.get('num_tokens')
-
+        
         self.tokens = []
-        self.color = None
+        self.finished_tokens = []
         for i in range(0,self.num_tokens):
             str(i)
-            temp = token(self)
+            temp = token(self,page)
             self.tokens.append(temp)
+
+        if not kwargs.get('color'):
+            self.color = None
+        else:
+            self.associate_color(kwargs.get('color'))
+
+        dimensions = eval(os.environ.get('dimensions'))
+        scale=page.session.get('scale')
+
+        self.frame_cont = ft.GestureDetector(
+            mouse_cursor=ft.MouseCursor.CLICK,
+            disabled=True,
+            on_tap = self.nothing,
+            left = dimensions[0] + self.data['frames'][self.color.color]['x']*scale + self.data['dice']['x']*scale,
+            top = dimensions[1] + self.data['frames'][self.color.color]['y']*scale + self.data['dice']['y']*scale,
+            width = self.data['dice']['w']*scale,
+            height = self.data['dice']['h']*scale
+        )
+        self.page.update()
+
+    def reached_end(self,token):
+        self.finished_tokens.append(token)
+        if len(self.finished_tokens)==4:
+            a = self.page.session.get('players')
+            a.remove(self)
+            self.page.session.set('players',a)
+
+            b = self.page.session.get('won_list')
+            b.append(self)
+            self.page.session.set('won_list',b)
+            self.set_player_won()
+            self.page.update()
     
     def associate_color(self,color):
         self.color = color
@@ -209,17 +246,25 @@ class Player:
     def disable_movement_for_tokens(self):
         if not self.dice:
             raise GameOver('Bugs in the game guyz !')
-        self.dice.cont.on_tap = self.dice.roll
+
         for i in self.tokens:
             i.move_permitted = False
             i.gesture_cont.on_tap = i.nothing
             i.hover_cont.on_tap = i.nothing
+
+        if self.dice.number!=6:
+            players = self.dice.page.session.get('players')
+            self.dice.associate_player(players[(players.index(self.dice.player_associated) + 1)%len(players)])
+        else:
+            self.frame_cont.on_tap = self.dice.roll
         
-        self.dice.update_dice_locs()
         self.dice.page.update()
     
     def __str__(self):
         return self.name
+    
+    def nothing(self,e=None):
+        return
 
 class Color:
     color = None
@@ -360,42 +405,17 @@ class Dice:
     number = 1
     cont = []
 
-    def __init__(self,position,dimension,page,data):
+    def __init__(self,position,page,data):
         self.page = page
 
         self.data = data
+        scale = page.session.get('scale')
 
         self.dice_image = ft.Image(
             "https://raw.githubusercontent.com/YogyaChugh/Ludo/master/assets/dice_1.jpg",
-            width=data['dice']['w'],
-            height=data['dice']['h'],
+            width=data['dice']['w']*scale,
+            height=data['dice']['h']*scale,
             gapless_playback=True,
-        )
-        self.lottie2 = ft.Container(
-            content=ft.Text('Player: None', size=20, weight=ft.FontWeight.BOLD, color="white"),
-            width=200,
-            height=50,
-            alignment=ft.alignment.center,
-            bgcolor="bluegrey600",
-            border_radius=12,
-            padding=10,
-            shadow=ft.BoxShadow(
-                blur_radius=10,
-                color=ft.Colors.BLACK38,
-                offset=ft.Offset(4, 4),
-                spread_radius=1
-            ),
-            left = position[0] - 70,
-            top = position[1] + 70
-        )
-        self.cont = ft.GestureDetector(
-            content = self.dice_image,
-            mouse_cursor=ft.MouseCursor.CLICK,
-            on_tap = self.nothing,
-            left = 10,
-            top = 10,
-            width = self.dice_image.width,
-            height = self.dice_image.height
         )
         self.page.update()
 
@@ -408,49 +428,77 @@ class Dice:
         self.number = random.randint(1,6)
         await self.animate_and_display_num()
         print('NUMBER ROLLED: ',self.number)
-        self.lottie2.content.value = self.player_associated.color.color
         self.page.update()
         os.environ['dice_num'] = str(self.number)
         num = 0
         lasti = None
+        locs_w = []
+        locs_h = []
         for i in self.player_associated.tokens:
+            t = i.current_block
+            done = False
+            for j in range(0,self.number):
+                if t.next_block:
+                    t = t.next_block
+                else:
+                    done = True
+                    break
+            if done:
+                continue
             if self.number == 6:
                 if not i.reached_end:
+                    locs_w.append(i.current_block.location[0])
+                    locs_h.append(i.current_block.location[1])
                     num +=1
                     lasti = i
                     i.move_permitted = True
                     i.gesture_cont.on_tap = i.move
                     i.hover_cont.on_tap = i.move
-                    self.cont.on_tap = self.nothing
+                    self.player_associated.frame_cont.on_tap = self.nothing
             else:
                 if not i.reached_end and i.home_block != i.current_block:
+                    locs_w.append(i.current_block.location[0])
+                    locs_h.append(i.current_block.location[1])
                     num +=1
                     lasti = i
                     i.move_permitted = True
                     i.gesture_cont.on_tap = i.move
                     i.hover_cont.on_tap = i.move
-                    self.cont.on_tap = self.nothing
+                    self.player_associated.frame_cont.on_tap = self.nothing
                     self.page.update()
         if num==1:
+            lasti.gesture_cont.on_tap = lasti.nothing
+            lasti.hover_cont.on_tap = lasti.nothing
+            self.page.update()
             await asyncio.sleep(0.4)
             await lasti.move()
-        if self.number != 6:
+        if len(set(locs_w))==1 and len(set(locs_h))==1:
+            await asyncio.sleep(0.4)
+            await lasti.move()
+        if num==0:
+            self.player_associated.frame_cont.on_tap = self.nothing
+            await asyncio.sleep(1)
             players = self.page.session.get('players')
             self.associate_player(players[(players.index(self.player_associated) + 1)%len(players)])
-            print('Player in turn: ',self.player_associated.color.color)
-        
-        if num==0:
-            self.update_dice_locs
+        print('num: ',num)
+        print('player associated: ',self.player_associated)
 
         return self.number
     
     def associate_player(self,player):
+        if self.player_associated:
+            self.player_associated.frame_cont.disabled = True
         self.player_associated = player
         player.dice = self
+        player.frame_cont.disabled = False
+        player.frame_cont.on_tap = self.roll
+        self.page.update()
+        self.update_dice_locs()
 
     def update_dice_locs(self):
-        self.dice_image.top = self.player_associated.frame.top + self.data['dice']['y']
-        self.dice_image.left = self.player_associated.frame.left + self.data['dice']['x']
+        scale = self.page.session.get('scale')
+        self.dice_image.top = self.player_associated.frame.top + self.data['dice']['y']*scale
+        self.dice_image.left = self.player_associated.frame.left + self.data['dice']['x']*scale
         self.page.update()
 
     async def animate_and_display_num(self):

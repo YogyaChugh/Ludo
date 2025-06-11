@@ -1,7 +1,33 @@
-[tool.flet.splash]
-android = false
+[tool.flet]
+app.module = "main"
+compile.app = true # --compile-app
+compile.packages = true # --compile-packages
+compile.cleanup = true # --cleanup-on-compile
+build_number = 1
 
 [tool.flet.android]
 min_sdk_version = 21
 target_sdk_version = 34
 dependencies = ['flet','certifi','pyyaml']
+split_per_abi = true
+
+[tool.flet.app.boot_screen]
+show = true
+message = "Preparing the app for its first launch…"
+
+[tool.flet.app.startup_screen]
+show = true
+message = "Starting up the app…"
+
+[project]
+name = "LUDO"
+version = "1.0.0"
+description = "Luck is on your side."
+authors = [
+  {name = "Yogya Chugh", email = "yogya.developer@gmail.com"}
+]
+dependencies = ["flet==0.25.0"]
+
+[tool.flet.android.manifest_application]
+usesCleartextTraffic = "true"
+requestLegacyExternalStorage = "true"
