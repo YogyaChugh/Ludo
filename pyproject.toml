@@ -6,8 +6,6 @@ compile.cleanup = true # --cleanup-on-compile
 build_number = 1
 
 [tool.flet.android]
-min_sdk_version = 21
-target_sdk_version = 34
 dependencies = ['flet','certifi','pyyaml']
 split_per_abi = true
 
@@ -26,7 +24,6 @@ description = "Luck is on your side."
 authors = [
   {name = "Yogya Chugh", email = "yogya.developer@gmail.com"}
 ]
-dependencies = ["flet==0.25.0"]
 
 [tool.flet.android.manifest_application]
 usesCleartextTraffic = "true"

@@ -1,4 +1,3 @@
 certifi
 flet
 pyyaml
-python-dotenv

@@ -1,9 +1,11 @@
 import random
 import flet as ft
+import flet_lottie as fl
 import copy
 import math
 import os
 import asyncio
+import base64
 from exceptions import GameOver, PlayerReachedEnd
 try:
     from yaml import CLoader as Loader, CDumper as Dumper, load, dump
@@ -47,9 +49,11 @@ class token:
         a = self.current_block
         if not disabled:
             for i in range(0,num):
-                if self.current_block.next_block.next_block == None:
-                    self.reached_end = True
-                    self.player.reached_end(self)
+                print('-------------------------------')
+                print('Player: ',self.player.color.color)
+                print('Blocks:')
+                print("Current: ",self.current_block.location)
+                print("Next: ",self.current_block.next_block.location)
                 if self.current_block == self.player.color.last_path_block:
                     self.current_block = self.player.color.end_entry_block
                 else:
@@ -97,11 +101,17 @@ class token:
                         self.page.update()
                         await asyncio.sleep(0.002)
                 await asyncio.sleep(0.1)
+                try:
+                    print('THE NEXT BLOCK TO THE NEW CURRENT: ',self.current_block.next_block.location)
+                except Exception:
+                    print('THE NEXT BLOCK TO THE NEW CURRENT: ',self.current_block.next_block)
 
         temp = self.page.session.get('tokens')
+        player_cutted_baby = False
         for p in temp:
             if self.current_block == temp[p] and not temp[p].safe and not p.player==self.player:
                 temp[p] = p.home_block
+                player_cutted_baby = True
                 await p.return_home()
         
         temp[self] = self.current_block
@@ -113,7 +123,15 @@ class token:
         self.hover_cont.top = dimensions[1] + self.current_block.location[1]*scale - (self.image.height*9)//10 + math.fabs(self.current_block.dimension[1]*scale - self.image.height)//2
         self.hover_cont.left = dimensions[0] + self.current_block.location[0]*scale + math.fabs(self.current_block.dimension[0]*scale - self.image.width)//2
 
-        self.player.disable_movement_for_tokens()
+        if self.current_block.next_block == None:
+            print('Boy the next to next move is None')
+            self.reached_end = True
+            self.player.reached_end(self)
+            self.player.disable_movement_for_tokens(True)
+        elif player_cutted_baby:
+            self.player.disable_movement_for_tokens(True)
+        else:
+            self.player.disable_movement_for_tokens(False)
 
         self.page.update()
 
@@ -222,8 +240,34 @@ class Player:
         )
         self.page.update()
 
+    def set_player_won(self):
+        for i in self.tokens:
+            i.gesture_cont.visible = False
+            i.hover_cont.visible = False
+            self.page.update()
+        with open('assets/won_1st.json','r',encoding='utf-8') as file:
+            data_json = file.read()
+        bsdata = base64.b64encode(data_json.encode('utf-8')).decode('utf-8')
+
+        dimensions = self.page.session.get('dimensions')
+        scale = self.page.session.get('scale')
+        came_first = fl.Lottie(
+            src_base64=bsdata,
+            width = (6*self.data.get('block_width')*scale)//2,
+            height = (6*self.data.get('block_height')*scale)//2,
+            top = dimensions[0] + (6 * self.data.get('block_height')*scale)//4,
+            left = dimensions[1] + (6 * self.data.get('block_width')*scale)//4
+        )
+        self.page.add(came_first)
+        self.page.update()
+        
+
     def reached_end(self,token):
         self.finished_tokens.append(token)
+        print('-------------------------------')
+        print('Player: ',self.color.color)
+        print('reached end !')
+        print('total reached end: ',len(self.finished_tokens))
         if len(self.finished_tokens)==4:
             a = self.page.session.get('players')
             a.remove(self)
@@ -232,7 +276,10 @@ class Player:
             b = self.page.session.get('won_list')
             b.append(self)
             self.page.session.set('won_list',b)
+            play = self.page.session.get('players')
             self.set_player_won()
+            if len(b) == len(play) - 1:
+                raise GameOver('DUDE THE GAME IS OVER !')
             self.page.update()
     
     def associate_color(self,color):
@@ -243,7 +290,7 @@ class Player:
             i.current_block = color.home_blocks[num]
             num += 1
 
-    def disable_movement_for_tokens(self):
+    def disable_movement_for_tokens(self,allow_again):
         if not self.dice:
             raise GameOver('Bugs in the game guyz !')
 
@@ -252,7 +299,7 @@ class Player:
             i.gesture_cont.on_tap = i.nothing
             i.hover_cont.on_tap = i.nothing
 
-        if self.dice.number!=6:
+        if self.dice.number!=6 and not allow_again:
             players = self.dice.page.session.get('players')
             self.dice.associate_player(players[(players.index(self.dice.player_associated) + 1)%len(players)])
         else:
@@ -427,7 +474,6 @@ class Dice:
             raise GameOver("Bugs in the game guyz !")
         self.number = random.randint(1,6)
         await self.animate_and_display_num()
-        print('NUMBER ROLLED: ',self.number)
         self.page.update()
         os.environ['dice_num'] = str(self.number)
         num = 0
@@ -480,8 +526,7 @@ class Dice:
             await asyncio.sleep(1)
             players = self.page.session.get('players')
             self.associate_player(players[(players.index(self.player_associated) + 1)%len(players)])
-        print('num: ',num)
-        print('player associated: ',self.player_associated)
+        players = self.page.session.get('players')
 
         return self.number
     

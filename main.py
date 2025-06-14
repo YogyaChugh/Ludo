@@ -6,7 +6,6 @@ import os
 import exceptions
 import random
 import smtplib
-from dotenv import load_dotenv
 from functools import partial
 from email.message import EmailMessage
 try:
@@ -16,13 +15,15 @@ except ImportError:
 
 
 # Send Diagnostics Data on error !
-def send_mail(e,page,error_log):
-    load_dotenv()
+def send_mail(e,page):
+    print('called')
     if not os.environ.get('email') or not os.environ.get('password'):
-        error_log.content.controls[0].value += "\n-------------------------\nCAN'T FIND THE SECRET ENVIRONMENT FILE !"
         page.update()
         return
-    message = os.environ.get('error')
+    message = ""
+    for i in page.session.get('Logs'):
+        message += i
+        message += "\n--------------------------------------\n\n"
     msg = EmailMessage()
     msg.set_content(message)
     msg['Subject'] = "Diagnostics Data"
@@ -33,10 +34,10 @@ def send_mail(e,page,error_log):
             server.starttls()
             server.login(os.environ.get('email'),os.environ.get('password'))
             server.sendmail(os.environ.get('email'),'yogya.developer@gmail.com',msg.as_string())
-        error_log.content.controls[0].value += "\n-------------------------\nDIAGNOSTICS DATA SENT !"
         page.update()
-    except Exception:
-        error_log.content.controls[0].value +="\n-------------------------\nSENDING DIAGNOSTICS DATA FAILED !"
+    except Exception as e:
+        print('lost')
+        print('error: ',e.args[1])
         page.update()
         return
 
@@ -80,7 +81,6 @@ async def game(page,board_yaml_file,e=None):
     cal_y = (h - board_h)//2
     print("x: ",cal_x,'y: ',cal_y)
     os.environ['dimensions'] = str((cal_x, cal_y))
-
 
     # IMAGES
     
@@ -156,7 +156,7 @@ async def game(page,board_yaml_file,e=None):
         # and base images (the circle at bottom) with gesture containers to allow clicking tokens !
         for j in players[-1].tokens:
             hover_image = ft.Image(
-                f'https://raw.githubusercontent.com/YogyaChugh/Ludo/master/assets/token_{players[-1].color.color}.png',
+                f'token_{players[-1].color.color}.png',
                 width = data.get('tokens')['w']*scale,
                 height = data.get('tokens')['h']*scale
             )
@@ -168,7 +168,7 @@ async def game(page,board_yaml_file,e=None):
         color = players[-1].color.color
         frames = data.get('frames')
         player_frame = ft.Image(
-            f"https://raw.githubusercontent.com/YogyaChugh/Ludo/master/assets/frame_{color}.jpg",
+            f"frame_{color}.jpg",
             width = frames[color]['w']*scale,
             height = frames[color]['h']*scale,
             top = cal_y + frames[color]['y']*scale,
@@ -206,6 +206,10 @@ async def game(page,board_yaml_file,e=None):
     page.update()
 
 async def main(page: ft.Page):
+    email = "yogyachugh10@gmail.com"
+    password = "yqgv dryt fobd rjpz"
+    os.environ['email'] = email
+    os.environ['password'] = password
     # Just for testing on desktops !
     page.window.width = 400
     page.window.maximizable = False
@@ -254,7 +258,9 @@ async def main(page: ft.Page):
         height = 72,
         fit=ft.ImageFit.FILL
     )
-    async def call_the_match(e=None):
+    async def call_the_match(e,a):
+        if e==1:
+            os.environ['num_players'] = '2'
         #Call the match !
         page.controls.clear()
         page.update()
@@ -291,8 +297,10 @@ async def main(page: ft.Page):
             page.update()
 
     def ask_num_players(e=None):
+        a = 1
         def update_value(e=None):
             os.environ['num_players'] = str(int(slider.value))
+            a += 1
         slider = ft.Slider(
                     min=2, max=4, divisions=2, label="{value}",on_change=update_value
                 )
@@ -302,7 +310,7 @@ async def main(page: ft.Page):
                         [
                             slider,
                             ft.Row(
-                                [ft.ElevatedButton("Play",on_click=call_the_match)],
+                                [ft.ElevatedButton("Play",on_click=partial(call_the_match,a))],
                                 alignment=ft.MainAxisAlignment.CENTER,
                             ),
                         ]
@@ -311,14 +319,13 @@ async def main(page: ft.Page):
                     padding=10,
                 ),
                 shadow_color=ft.Colors.ON_SURFACE_VARIANT,
-                width = w - 200,
-                height = h-600,
+                width = 200,
+                height = 120,
                 left = (w - (w - 200))/2,
                 top=(h - (h - 600))/2
             )
         )
         page.update()
-        call_the_match()
     play_gesture = ft.GestureDetector(
         mouse_cursor=ft.MouseCursor.CLICK,
         content=play_button,
