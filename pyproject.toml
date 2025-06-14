@@ -1,13 +1,5 @@
-[tool.flet]
-app.module = "main"
-compile.app = true # --compile-app
-compile.packages = true # --compile-packages
-compile.cleanup = true # --cleanup-on-compile
-build_number = 1
-
 [tool.flet.android]
-dependencies = ['flet','certifi','pyyaml']
-split_per_abi = true
+dependencies = ['flet','certifi','pyyaml','python-dotenv']
 
 [tool.flet.app.boot_screen]
 show = true
@@ -24,7 +16,3 @@ description = "Luck is on your side."
 authors = [
   {name = "Yogya Chugh", email = "yogya.developer@gmail.com"}
 ]
-
-[tool.flet.android.manifest_application]
-usesCleartextTraffic = "true"
-requestLegacyExternalStorage = "true"

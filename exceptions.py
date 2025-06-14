@@ -1,6 +1,7 @@
 class GameOver(Exception):
     def __init__(self,message):
         self.message = message
+        self.extras = {}
         super().__init__(self.message)
         
 

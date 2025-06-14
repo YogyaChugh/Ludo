@@ -199,8 +199,9 @@ class Player:
     dice = None
     frame = None
 
-    def __init__(self,page,**kwargs):
+    def __init__(self,page,view,**kwargs):
         self.page = page
+        self.view = view
 
         self.data = self.page.session.get('data')
         if not kwargs.get('name'):
@@ -258,7 +259,7 @@ class Player:
             top = dimensions[0] + (6 * self.data.get('block_height')*scale)//4,
             left = dimensions[1] + (6 * self.data.get('block_width')*scale)//4
         )
-        self.page.add(came_first)
+        self.view.controls.append(came_first)
         self.page.update()
         
 
@@ -470,6 +471,7 @@ class Dice:
         return
 
     async def roll(self,e=None):
+        self.player_associated.frame_cont.on_tap = self.nothing
         if not self.player_associated:
             raise GameOver("Bugs in the game guyz !")
         self.number = random.randint(1,6)
