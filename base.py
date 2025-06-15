@@ -1,6 +1,7 @@
 import random
 import flet as ft
 import flet_lottie as fl
+import flet_audio as fa
 import copy
 import math
 import os
@@ -12,14 +13,93 @@ try:
 except ImportError:
     from yaml import Loader, Dumper, load, dump
 
+app_temp_path = os.getenv("FLET_APP_STORAGE_TEMP")
+logfile_path = app_temp_path + "/logs.txt"
+logfile = open(logfile_path,'a')
+
+
+async def scale_down_tokens(tokens_list,data):
+    logfile.write(f'TOKENS SCALED DOWN: {tokens_list} !\n')
+    logfile.flush()
+    if not tokens_list:
+        return
+    for i in tokens_list:
+        i.scale_up()
+    scale = tokens_list[0].scale_down
+    for i in tokens_list:
+        i.storage['prevh_w'] = i.hover_cont.content.width
+        i.storage['prevh_h'] = i.hover_cont.content.height
+        i.storage['prevg_w'] = i.gesture_cont.content.width
+        i.storage['prevg_h'] = i.gesture_cont.content.height
+        i.storage['prevg_t'] = i.gesture_cont.top
+        i.storage['prevg_l'] = i.gesture_cont.left
+        i.storage['prevh_t'] = i.hover_cont.top
+        i.storage['prevh_l'] = i.hover_cont.left
+
+        i.gesture_cont.content.width *= scale
+        i.gesture_cont.content.height *= scale
+
+        i.hover_cont.content.width *= scale
+        i.hover_cont.content.height *= scale
+
+        if i.current_block.next_block==None:
+            center_of = data.get('align_win').get(i.player.color.color)
+        elif i.current_block.next_block.location[1] == i.current_block.location[1]:
+            center_of = 'y'
+        else:
+            center_of = 'x'
+
+        i.hover_cont.top += (i.storage['prevg_h'] - i.gesture_cont.content.height)
+
+        data = i.page.session.get('data')
+        index_val = tokens_list.index(i)
+        if center_of=='y':
+            tempo = (i.current_block.dimension[0] - i.gesture_cont.content.width)/2
+            i.gesture_cont.left += tempo
+            i.hover_cont.left += tempo
+
+            margin = data.get('block_height')*(1/24)
+            height_to_fit_in = data.get('block_height') - margin*2
+            height_to_cover = i.gesture_cont.content.height*len(tokens_list)
+
+            calculated_return = (height_to_cover - height_to_fit_in)/(len(tokens_list)-1)
+            gesture_cont_more_top = margin + index_val*i.gesture_cont.content.height - (index_val)*calculated_return
+
+            i.gesture_cont.top += gesture_cont_more_top
+            i.hover_cont.top += gesture_cont_more_top
+        else:
+            tempo = (i.current_block.dimension[1] - i.gesture_cont.content.height)/2
+            i.gesture_cont.top += tempo
+            i.hover_cont.top += tempo
+
+            margin = data.get('block_width')*(1/24)
+            width_to_fit_in = data.get("block_width") - margin*2
+            width_to_cover = i.gesture_cont.content.width*len(tokens_list)
+
+            calculated_return = (width_to_cover - width_to_fit_in)/(len(tokens_list)-1)
+            gesture_cont_more_left = margin + index_val*i.gesture_cont.content.width - (index_val)*calculated_return
+
+            i.gesture_cont.left += gesture_cont_more_left
+            i.hover_cont.left += gesture_cont_more_left
+        
+        i.page.update()
+        logfile.write(f'SCALING DOWN SUCCESS !\n')
+        logfile.flush()
+
 class token:
     def __init__(self,player,page):
+        logfile.write(f'TOKEN CREATED !\n')
+        logfile.flush()
         if not isinstance(player, Player):
             raise GameOver("Bugs in the game guyz !")
         self.player = player
         self.home_block = None
         self.current_block = None
         self.gesture_cont = None
+        
+        self.scale_down = 1
+
+        self.storage = {}
 
         self.hover_cont = None
 
@@ -27,11 +107,80 @@ class token:
         self.reached_end = False
 
         self.page = page
+
+        self.tapped = fa.Audio(
+            "tap.mp3",
+            playback_rate=1.5
+        )
+        self.page.overlay.append(self.tapped)
+        with open('assets/allowed_tokens_animation.json','r',encoding='utf-8') as file:
+            data_json = file.read()
+        bsdata = base64.b64encode(data_json.encode('utf-8')).decode('utf-8')
+        self.selected = fl.Lottie(
+            src_base64=bsdata,
+            visible=False,
+            repeat = True,
+            animate = True
+        )
+        logfile.write(f'TOKEN INITIATION SUCCESS !\n')
+        logfile.flush()
+
+    def __str__(self):
+        return str(self.player) + "\t" + str(hash(self)) + "\t" + str(self.home_block)
     
     def __repr__(self):
         return str(self.player) + "\t" + str(hash(self)) + "\t" + str(self.home_block)
+    
+    async def scale_it_back_man(self):
+        logfile.write(f'SEARCH FOR CLUTTERRED TOKENS INITIATED !\n')
+        logfile.flush()
+        temp = self.page.session.get('tokens')
+        for i in temp.values():
+            temp_num = list(temp.values()).count(i)
+            tokens_to_scale_down = []
+            if temp_num>1:
+                for j in temp:
+                    if temp[j]==i:
+                        j.scale_down = 1 - (temp_num-1)*0.25
+                        tokens_to_scale_down.append(j)
+                await scale_down_tokens(tokens_to_scale_down,self.page.session.get('data'))
+
+    def scale_up(self):
+        logfile.write(f'TOKEN SCALED BACK TO NORMAL: {self} !\n')
+        logfile.flush()
+        if self.storage.get('prevg_w'):
+            self.gesture_cont.content.width = self.storage['prevg_w']
+            self.hover_cont.content.width = self.storage['prevh_w']
+            self.page.update()
+            self.hover_cont.top = self.storage['prevh_t']
+            self.hover_cont.left = self.storage['prevh_l']
+            self.gesture_cont.top = self.storage['prevg_t']
+            self.gesture_cont.left = self.storage['prevg_l']
+            self.hover_cont.content.height = self.storage['prevh_h']
+            self.gesture_cont.content.height = self.storage['prevg_h']
+            self.page.update()
+            self.storage = {}
 
     async def move(self,e=None):
+        logfile.write(f'TOKEN MOVED: {self} !\n')
+        logfile.flush()
+        for jjj in self.player.tokens:
+            if jjj!=self:
+                jjj.move_permitted = False
+                jjj.selected.visible = False
+            if jjj.storage.get('extra_width_hover'):
+                jjj.hover_cont.content.width -= jjj.storage.get('extra_width_hover')
+                jjj.hover_cont.content.height -= jjj.storage.get('extra_height_hover')
+                jjj.hover_cont.top += jjj.storage.get('extra_height_hover')/2
+                jjj.hover_cont.left += jjj.storage.get('extra_width_hover')/2
+
+                del jjj.storage['extra_width_hover']
+                del jjj.storage['extra_height_hover']
+
+                jjj.page.update()
+
+        self.selected.visible = False
+        self.page.update()
         self.gesture_cont.on_tap = self.nothing
         self.hover_cont.on_tap = self.nothing
         disabled = False
@@ -48,70 +197,77 @@ class token:
             animation_allowed = False
         a = self.current_block
         if not disabled:
+            self.scale_up()
+            self.scale_down = 1
             for i in range(0,num):
-                print('-------------------------------')
-                print('Player: ',self.player.color.color)
-                print('Blocks:')
-                print("Current: ",self.current_block.location)
-                print("Next: ",self.current_block.next_block.location)
+                if os.environ.get('sound')=='1':
+                    logfile.write(f'TAP SOUND PLAYED !\n')
+                    logfile.flush()
+                    self.tapped.play()
+                else:
+                    logfile.write(f'TAP SOUND NOT PLAYED !\n')
+                    logfile.flush()
+
                 if self.current_block == self.player.color.last_path_block:
                     self.current_block = self.player.color.end_entry_block
                 else:
                     self.current_block = self.current_block.next_block
                     if not animation_allowed:
                         break
-                    gesture_cont_top = dimensions[1] + self.current_block.location[1]*scale + math.fabs(self.current_block.dimension[1]*scale - self.image.height)//2
-                    gesture_cont_left = dimensions[0] + self.current_block.location[0]*scale + math.fabs(self.current_block.dimension[0]*scale - self.image.width)//2
-                    hover_cont_top = dimensions[1] + self.current_block.location[1]*scale - (self.image.height*9)//10 + math.fabs(self.current_block.dimension[1]*scale - self.image.height)//2
-                    hover_cont_left = dimensions[0] + self.current_block.location[0]*scale + math.fabs(self.current_block.dimension[0]*scale - self.image.width)//2
 
-                    vary_top_g = (gesture_cont_top - self.gesture_cont.top)/(self.page.session.get('data').get('block_height')*scale)
-                    vary_left_g = (gesture_cont_left - self.gesture_cont.left)/(self.page.session.get('data').get('block_width')*scale)
+                gesture_cont_top = dimensions[1] + self.current_block.location[1]*scale + math.fabs(self.current_block.dimension[1]*scale - self.image.height)//2
+                gesture_cont_left = dimensions[0] + self.current_block.location[0]*scale + math.fabs(self.current_block.dimension[0]*scale - self.image.width)//2
+                hover_cont_top = dimensions[1] + self.current_block.location[1]*scale - (self.image.height*9)//10 + math.fabs(self.current_block.dimension[1]*scale - self.image.height)//2
+                hover_cont_left = dimensions[0] + self.current_block.location[0]*scale + math.fabs(self.current_block.dimension[0]*scale - self.image.width)//2
+                vary_top_g = (gesture_cont_top - self.gesture_cont.top)/(self.page.session.get('data').get('block_height')*scale)
+                vary_left_g = (gesture_cont_left - self.gesture_cont.left)/(self.page.session.get('data').get('block_width')*scale)
+                vary_top_h = (hover_cont_top - self.hover_cont.top)/(self.page.session.get('data').get('block_height')*scale)
+                vary_left_h = (hover_cont_left - self.hover_cont.left)/(self.page.session.get('data').get('block_width')*scale)
 
-                    vary_top_h = (hover_cont_top - self.hover_cont.top)/(self.page.session.get('data').get('block_height')*scale)
-                    vary_left_h = (hover_cont_left - self.hover_cont.left)/(self.page.session.get('data').get('block_width')*scale)
-                    for i in range(24):
-                        self.gesture_cont.top = self.gesture_cont.top + vary_top_g
-                        self.gesture_cont.left = self.gesture_cont.left + vary_left_g
-                        self.hover_cont.top = self.hover_cont.top + vary_top_h
-                        self.hover_cont.left = self.hover_cont.left + vary_left_h
-                        if i%2!=0:
-                            if i<12:
-                                self.gesture_cont.top -= 1*scale
-                                self.gesture_cont.left -=1*scale
-                                self.hover_cont.top -=1*scale
-                                self.hover_cont.left -=1*scale
-
-                                self.gesture_cont.content.width +=1*scale
-                                self.gesture_cont.content.height +=1*scale
-                                self.hover_cont.content.width +=1*scale
-                                self.hover_cont.content.height +=1*scale
-
-                            else:
-                                self.gesture_cont.top += 1*scale
-                                self.gesture_cont.left +=1*scale
-                                self.hover_cont.top +=1*scale
-                                self.hover_cont.left +=1*scale
-
-                                self.gesture_cont.content.width -=1*scale
-                                self.gesture_cont.content.height -=1*scale
-                                self.hover_cont.content.width -=1*scale
-                                self.hover_cont.content.height -=1*scale
-
-                        self.page.update()
-                        await asyncio.sleep(0.002)
+                logfile.write(f'TOKEN MOVING ANIMATION STARTED !\n')
+                logfile.flush()
+                for i in range(24):
+                    self.gesture_cont.top = self.gesture_cont.top + vary_top_g
+                    self.gesture_cont.left = self.gesture_cont.left + vary_left_g
+                    self.hover_cont.top = self.hover_cont.top + vary_top_h
+                    self.hover_cont.left = self.hover_cont.left + vary_left_h
+                    if i%2!=0:
+                        if i<12:
+                            self.gesture_cont.top -= 1*scale
+                            self.gesture_cont.left -=1*scale
+                            self.hover_cont.top -=1*scale
+                            self.hover_cont.left -=1*scale
+                            self.gesture_cont.content.width +=1*scale
+                            self.gesture_cont.content.height +=1*scale
+                            self.hover_cont.content.width +=1*scale
+                            self.hover_cont.content.height +=1*scale
+                        else:
+                            self.gesture_cont.top += 1*scale
+                            self.gesture_cont.left +=1*scale
+                            self.hover_cont.top +=1*scale
+                            self.hover_cont.left +=1*scale
+                            self.gesture_cont.content.width -=1*scale
+                            self.gesture_cont.content.height -=1*scale
+                            self.hover_cont.content.width -=1*scale
+                            self.hover_cont.content.height -=1*scale
+                    self.page.update()
+                    await asyncio.sleep(0.002)
                 await asyncio.sleep(0.1)
-                try:
-                    print('THE NEXT BLOCK TO THE NEW CURRENT: ',self.current_block.next_block.location)
-                except Exception:
-                    print('THE NEXT BLOCK TO THE NEW CURRENT: ',self.current_block.next_block)
+                logfile.write(f'TOKEN MOVING ANIMATION OVER !\n')
+                logfile.write(f'TOKEN MOVED BY 1 !\n')
+                logfile.flush()
 
+        logfile.write(f'TOKEN TOTAL MOVEMENTS: {num}!\n')
+        logfile.flush()
         temp = self.page.session.get('tokens')
         player_cutted_baby = False
         for p in temp:
             if self.current_block == temp[p] and not temp[p].safe and not p.player==self.player:
+                logfile.write(f'TOKEN {p} CUT BY TOKEN {self}!\n')
+                logfile.flush()
                 temp[p] = p.home_block
                 player_cutted_baby = True
+                self.player.lost_audio.play()
                 await p.return_home()
         
         temp[self] = self.current_block
@@ -120,11 +276,15 @@ class token:
         self.gesture_cont.top = dimensions[1] + self.current_block.location[1]*scale + math.fabs(self.current_block.dimension[1]*scale - self.image.height)//2
         self.gesture_cont.left = dimensions[0] + self.current_block.location[0]*scale + math.fabs(self.current_block.dimension[0]*scale - self.image.width)//2
 
+        self.selected.top = self.gesture_cont.top - 4
+        self.selected.left = self.gesture_cont.left - 4
+
         self.hover_cont.top = dimensions[1] + self.current_block.location[1]*scale - (self.image.height*9)//10 + math.fabs(self.current_block.dimension[1]*scale - self.image.height)//2
         self.hover_cont.left = dimensions[0] + self.current_block.location[0]*scale + math.fabs(self.current_block.dimension[0]*scale - self.image.width)//2
 
         if self.current_block.next_block == None:
-            print('Boy the next to next move is None')
+            if os.environ.get('sound')=='1':
+                self.player.reached_end_audio.play()
             self.reached_end = True
             self.player.reached_end(self)
             self.player.disable_movement_for_tokens(True)
@@ -132,6 +292,7 @@ class token:
             self.player.disable_movement_for_tokens(True)
         else:
             self.player.disable_movement_for_tokens(False)
+        await self.scale_it_back_man()
 
         self.page.update()
 
@@ -161,9 +322,12 @@ class token:
         self.hover_cont.left = dimensions[0] + self.current_block.location[0]*scale + math.fabs(self.current_block.dimension[0]*scale - self.image.width)//2
 
         self.page.update()
+        logfile.write(f'TOKEN {self} returned to Home Successfully!\n')
+        logfile.flush()
 
     def create_token(self,image,image2):
-
+        logfile.write(f'TOKEN Assets Creation Initiated!\n')
+        logfile.flush()
         a = self.page.session.get('tokens')
         a[self] = self.current_block
         self.page.session.set('tokens',a)
@@ -193,13 +357,22 @@ class token:
             left = dimensions[0] + self.current_block.location[0]*scale + math.fabs(self.current_block.dimension[0]*scale - self.image.width)//2,
         )
 
-        return (self.gesture_cont,self.hover_cont)
+        self.selected.top = self.gesture_cont.top - 4
+        self.selected.left = self.gesture_cont.left - 4
+        self.selected.width = self.gesture_cont.content.width + 8
+        self.selected.height = self.gesture_cont.content.height + 8
+        self.page.update()
+        logfile.write(f'TOKEN Assets Creation Successfull!\n')
+        logfile.flush()
+
 class Player:
     num = 0
     dice = None
     frame = None
 
     def __init__(self,page,view,**kwargs):
+        logfile.write(f'Player Created!\n')
+        logfile.flush()
         self.page = page
         self.view = view
 
@@ -226,9 +399,22 @@ class Player:
             self.color = None
         else:
             self.associate_color(kwargs.get('color'))
+        
+        logfile.write(f'Color: {self.color.color}\n')
+        logfile.flush()
 
         dimensions = eval(os.environ.get('dimensions'))
         scale=page.session.get('scale')
+
+        self.reached_end_audio = fa.Audio(
+            "assets/reached_end.mp3"
+        )
+        self.page.overlay.append(self.reached_end_audio)
+
+        self.lost_audio = fa.Audio(
+            "assets/lost.wav"
+        )
+        self.page.overlay.append(self.lost_audio)
 
         self.frame_cont = ft.GestureDetector(
             mouse_cursor=ft.MouseCursor.CLICK,
@@ -239,51 +425,61 @@ class Player:
             width = self.data['dice']['w']*scale,
             height = self.data['dice']['h']*scale
         )
-        self.page.update()
-
-    def set_player_won(self):
-        for i in self.tokens:
-            i.gesture_cont.visible = False
-            i.hover_cont.visible = False
-            self.page.update()
         with open('assets/won_1st.json','r',encoding='utf-8') as file:
             data_json = file.read()
         bsdata = base64.b64encode(data_json.encode('utf-8')).decode('utf-8')
 
-        dimensions = self.page.session.get('dimensions')
+        dimensions = eval(os.environ.get('dimensions'))
         scale = self.page.session.get('scale')
-        came_first = fl.Lottie(
+        datalog = self.data.get('wins').get(self.color.color)
+        self.came_first = fl.Lottie(
             src_base64=bsdata,
-            width = (6*self.data.get('block_width')*scale)//2,
-            height = (6*self.data.get('block_height')*scale)//2,
-            top = dimensions[0] + (6 * self.data.get('block_height')*scale)//4,
-            left = dimensions[1] + (6 * self.data.get('block_width')*scale)//4
+            width = datalog.get('w'),
+            height = datalog.get('h'),
+            top = dimensions[1] + datalog.get('y'),
+            left = dimensions[1] + datalog.get('x'),
+            visible=False,
+            repeat= True,
+            animate= True
         )
-        self.view.controls.append(came_first)
+        self.page.update()
+
+    def set_player_won(self):
+        logfile.write(f'PLAYER {self.color.color} has won the match!\n')
+        logfile.flush()
+        for i in self.tokens:
+            i.gesture_cont.visible = False
+            i.hover_cont.visible = False
+            self.page.update()
+        self.came_first.visible = True
         self.page.update()
         
 
     def reached_end(self,token):
+        logfile.write(f"PLAYER {self.color.color}'s TOKEN {token} has reached the end !")
+        logfile.flush()
         self.finished_tokens.append(token)
-        print('-------------------------------')
-        print('Player: ',self.color.color)
-        print('reached end !')
-        print('total reached end: ',len(self.finished_tokens))
+        logfile.write(f'PLAYER {self.color.color} has {len(self.finished_tokens)} finished tokens !')
+        logfile.flush()
         if len(self.finished_tokens)==4:
-            a = self.page.session.get('players')
-            a.remove(self)
-            self.page.session.set('players',a)
+            players = self.page.session.get('players')
+            self.dice.associate_player(players[(players.index(self.dice.player_associated) + 1)%len(players)])
+            players = self.page.session.get('players')
+            players.remove(self)
+            self.page.session.set('players',players)
 
             b = self.page.session.get('won_list')
             b.append(self)
             self.page.session.set('won_list',b)
             play = self.page.session.get('players')
             self.set_player_won()
-            if len(b) == len(play) - 1:
-                raise GameOver('DUDE THE GAME IS OVER !')
             self.page.update()
+            if len(b) == len(play):
+                raise GameOver('DUDE THE GAME IS OVER !')
     
     def associate_color(self,color):
+        logfile.write(f'Player {self} Associated with {color.color}\n')
+        logfile.flush()
         self.color = color
         num = 0
         for i in self.tokens:
@@ -292,10 +488,13 @@ class Player:
             num += 1
 
     def disable_movement_for_tokens(self,allow_again):
+        logfile.write(f'All tokens for player {self.color.color} disabled !\n')
+        logfile.flush()
         if not self.dice:
             raise GameOver('Bugs in the game guyz !')
 
         for i in self.tokens:
+            i.selected.visible = False
             i.move_permitted = False
             i.gesture_cont.on_tap = i.nothing
             i.hover_cont.on_tap = i.nothing
@@ -304,6 +503,8 @@ class Player:
             players = self.dice.page.session.get('players')
             self.dice.associate_player(players[(players.index(self.dice.player_associated) + 1)%len(players)])
         else:
+            logfile.write(f'DICE NOT SHIFTED TO ANOTHER PLAYER\n')
+            logfile.flush()
             self.frame_cont.on_tap = self.dice.roll
         
         self.dice.page.update()
@@ -322,6 +523,8 @@ class Color:
     end_entry_block = None
 
     def __init__(self,color):
+        logfile.write(f'Color Object Created !\n')
+        logfile.flush()
         self.color = color
     
     def __repr__(self):
@@ -361,6 +564,8 @@ class Block:
 class Board:
     ## Every player got 18 recs
     def __init__(self,file_loc):
+        logfile.write(f'BOARD CREATION BEGAN !\n')
+        logfile.flush()
         with open(file_loc) as file:
             data = load(file,Loader=Loader)
 
@@ -447,6 +652,9 @@ class Board:
                     tb = Block([k.get('x'), k.get('y')], [data.get('block_width'),data.get('block_height')], None, self.colors.get(i).start_block, True, i)
                     temp_home_locs.append(tb)
                 self.colors[i].home_blocks = temp_home_locs
+        
+        logfile.write(f'BOARD CREATION SUCCESS !\n')
+        logfile.flush()
 
 class Dice:
     player_associated = None
@@ -465,16 +673,26 @@ class Dice:
             height=data['dice']['h']*scale,
             gapless_playback=True,
         )
+        self.dice_roll_sound = fa.Audio(
+            "assets/dice_roll.mp3"
+        )
+        self.page.overlay.append(self.dice_roll_sound)
         self.page.update()
 
     def nothing(self,e=None):
         return
 
     async def roll(self,e=None):
+        logfile.write(f'DICE ROLLED !\n')
+        logfile.flush()
+        if os.environ.get('sound')=="1":
+            self.dice_roll_sound.play()
         self.player_associated.frame_cont.on_tap = self.nothing
         if not self.player_associated:
             raise GameOver("Bugs in the game guyz !")
         self.number = random.randint(1,6)
+        logfile.write(f'NUMBER ON DICE: {self.number}\n')
+        logfile.flush()
         await self.animate_and_display_num()
         self.page.update()
         os.environ['dice_num'] = str(self.number)
@@ -499,22 +717,69 @@ class Dice:
                     locs_h.append(i.current_block.location[1])
                     num +=1
                     lasti = i
+
+                    w = i.hover_cont.content.width * 0.2
+                    h = i.hover_cont.content.height * 0.2
+                    i.hover_cont.content.width += w
+                    i.hover_cont.content.height += h
+
+                    i.hover_cont.left -= w/2
+                    i.hover_cont.top -= h/2
+
+                    i.storage['extra_width_hover'] = w
+                    i.storage['extra_height_hover'] = h
+
+                    i.selected.visible = True
                     i.move_permitted = True
                     i.gesture_cont.on_tap = i.move
                     i.hover_cont.on_tap = i.move
+
+                    i.scale_up()
+
                     self.player_associated.frame_cont.on_tap = self.nothing
+                    self.page.update()
             else:
                 if not i.reached_end and i.home_block != i.current_block:
                     locs_w.append(i.current_block.location[0])
                     locs_h.append(i.current_block.location[1])
                     num +=1
                     lasti = i
+
+                    w = i.hover_cont.content.width * 0.2
+                    h = i.hover_cont.content.height * 0.2
+                    i.hover_cont.content.width += w
+                    i.hover_cont.content.height += h
+
+                    i.hover_cont.left -= w/2
+                    i.hover_cont.top -= h/2
+
+                    i.storage['extra_width_hover'] = w
+                    i.storage['extra_height_hover'] = h
+
+                    i.selected.visible = True
                     i.move_permitted = True
                     i.gesture_cont.on_tap = i.move
                     i.hover_cont.on_tap = i.move
+
+                    i.scale_up()
+
                     self.player_associated.frame_cont.on_tap = self.nothing
                     self.page.update()
         if num==1:
+            logfile.write(f'TOKEN AUTOMATICALLY MOVED FOR PLAYER {lasti.player.color.color}\n')
+            logfile.flush()
+            lasti.gesture_cont.on_tap = lasti.nothing
+            lasti.hover_cont.on_tap = lasti.nothing
+            if lasti.storage.get('extra_width_hover'):
+                lasti.hover_cont.content.width -= lasti.storage['extra_width_hover']
+                lasti.hover_cont.content.height -= lasti.storage['extra_height_hover']
+                lasti.hover_cont.top += lasti.storage['extra_height_hover']/2
+                lasti.hover_cont.left += lasti.storage['extra_width_hover']/2
+
+                del lasti.storage['extra_width_hover']
+                del lasti.storage['extra_height_hover']
+
+            lasti.selected.visible = False
             lasti.gesture_cont.on_tap = lasti.nothing
             lasti.hover_cont.on_tap = lasti.nothing
             self.page.update()
@@ -524,6 +789,8 @@ class Dice:
             await asyncio.sleep(0.4)
             await lasti.move()
         if num==0:
+            logfile.write(f'NO TOKEN PERMITTED MOVEMENT !\n')
+            logfile.flush()
             self.player_associated.frame_cont.on_tap = self.nothing
             await asyncio.sleep(1)
             players = self.page.session.get('players')
@@ -535,6 +802,8 @@ class Dice:
     def associate_player(self,player):
         if self.player_associated:
             self.player_associated.frame_cont.disabled = True
+        logfile.write(f'DICE SHIFTED FROM {self.player_associated} to {player}!\n')
+        logfile.flush()
         self.player_associated = player
         player.dice = self
         player.frame_cont.disabled = False
@@ -543,15 +812,21 @@ class Dice:
         self.update_dice_locs()
 
     def update_dice_locs(self):
+        logfile.write(f'DICE LOCATIONS UPDATED !\n')
+        logfile.flush()
         scale = self.page.session.get('scale')
         self.dice_image.top = self.player_associated.frame.top + self.data['dice']['y']*scale
         self.dice_image.left = self.player_associated.frame.left + self.data['dice']['x']*scale
         self.page.update()
 
     async def animate_and_display_num(self):
+        logfile.write(f'DICE ANIMATION STARTED !!\n')
+        logfile.flush()
         for i in range(1,7):
             self.dice_image.src = f"dice_roll_images/{i}.jpg"
             self.page.update()
             await asyncio.sleep(0.1)
         self.dice_image.src = f"dice_{self.number}.jpg"
         self.page.update()
+        logfile.write(f'DICE ANIMATION OVER!\n')
+        logfile.flush()

@@ -5,8 +5,8 @@ board_width: 360
 board_height: 360
 block_width: 24
 block_height: 24
-dice_base_width: 22
-dice_base_height: 22
+dice_base_width: 20
+dice_base_height: 20
 
 asset_board: 'board_4.jpg'
 bg_image: 'bg.png'
@@ -17,6 +17,12 @@ colors:
   - green
   - blue
   - yellow
+
+hex_values:
+  red: "#FF0000"
+  green: "#008000"
+  yellow: "#FAD02C"
+  blue: "#0096FF"
 
 tokens:
   w: 22
@@ -43,6 +49,34 @@ frames:
     y: 370
     w: 112.5
     h: 57.5
+
+wins:
+  red:
+    x: 36
+    y: 36
+    w: 72
+    h: 72
+  green:
+    x: 252
+    y: 36
+    w: 72
+    h: 72
+  blue:
+    x: 252
+    y: 36
+    w: 72
+    h: 72
+  yellow:
+    x: 252
+    y: 252
+    w: 72
+    h: 72
+
+align_win:
+  red: 'y'
+  green: 'x'
+  yellow: 'y'
+  blue: 'x'
 
 dice:
   x: 58

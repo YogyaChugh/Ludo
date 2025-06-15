@@ -3,15 +3,19 @@ import smtplib
 import os
 
 # Send Diagnostics Data on error !
-def send_diagnostics_data(e,page):
+def send_diagnostics_data(e,page,file=None):
     print('called')
     if not os.environ.get('email') or not os.environ.get('password'):
         page.update()
         return
-    message = ""
-    for i in page.session.get('Logs'):
-        message += i
-        message += "\n--------------------------------------\n\n"
+    if not file:
+        message = ""
+        for i in page.session.get('Logs'):
+            message += i
+            message += "\n--------------------------------------\n\n"
+    else:
+        with open(file,'r') as log:
+            message = log.read()
     msg = EmailMessage()
     msg.set_content(message)
     msg['Subject'] = "Diagnostics Data"

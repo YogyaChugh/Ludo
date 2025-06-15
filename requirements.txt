@@ -1,4 +1,5 @@
 certifi
 flet
 pyyaml
-python-dotenv
+flet-audio
+flet-lottie

@@ -1,16 +1,8 @@
 [tool.flet.android]
-dependencies = ['flet','certifi','pyyaml','python-dotenv']
-
-[tool.flet.app.boot_screen]
-show = true
-message = "Preparing the app for its first launch…"
-
-[tool.flet.app.startup_screen]
-show = true
-message = "Starting up the app…"
+dependencies = ['flet','certifi','pyyaml','flet-lottie','flet-audio']
 
 [project]
-name = "LUDO"
+name = "LUDO CLASH"
 version = "1.0.0"
 description = "Luck is on your side."
 authors = [

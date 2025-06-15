@@ -2,6 +2,7 @@ import exceptions
 import random
 import copy
 import base
+import diagnostics
 import flet as ft
 import os
 try:
@@ -19,8 +20,14 @@ class Game:
         self.view.padding = 0
         if num_players:
             self.num_players = int(num_players)
+        os.environ['sound'] = '1'
+        app_temp_path = os.getenv("FLET_APP_STORAGE_TEMP")
+        self.logfile_path = app_temp_path + "/logs.txt"
+        self.logfile = open(self.logfile_path,'a')
 
     async def game(self,e=None):
+        self.logfile.write('GAME MATCH STARTED !\n')
+        self.logfile.flush()
         self.page.session.set('game_running',True)
 
         # Load File
@@ -57,8 +64,10 @@ class Game:
         # Calculate board dimensions based on screen dimensions
         cal_x = (w - board_w)//2
         cal_y = (h - board_h)//2
-        print("x: ",cal_x,'y: ',cal_y)
         os.environ['dimensions'] = str((cal_x, cal_y))
+
+        self.logfile.write('DIMENSIONS AND SCALE CALCULATED !\n')
+        self.logfile.flush()
 
         # IMAGES
 
@@ -70,6 +79,9 @@ class Game:
                 open(current)
         except Exception as e:
             raise exceptions.GameOver(f"File loading Failed:\n-------------------------\nFile: {current}\n{e.args[1]}")
+        
+        self.logfile.write('FILE CHECKS OVER !\n')
+        self.logfile.flush()
 
         # Background Image
         bgimg = ft.Container(
@@ -90,7 +102,7 @@ class Game:
             raise exceptions.GameOver(f"Game File Corrupt ! File: {self.board_yaml}")
 
         # Base of Every Token - It's same for all color tokens
-        dice_img = ft.Image(
+        token_base_img = ft.Image(
             data.get('asset_dice_base'),
             width = data.get('dice_base_width')*scale,
             height = data.get('dice_base_height')*scale
@@ -126,6 +138,8 @@ class Game:
             else:
                 a = list(board.colors.keys())[len(list(board.colors.keys())) - 1 - prev]
                 players.append(base.Player(self.page,self.view,color = colors_left[a]))
+            self.logfile.write(f'PLAYER ADDED: {players[-1]}\n')
+            self.logfile.flush()
             colors_left.pop(a)
 
             # Loops in all tokens, creating hover images (diff for each color)
@@ -136,9 +150,11 @@ class Game:
                     width = data.get('tokens')['w']*scale,
                     height = data.get('tokens')['h']*scale
                 )
-                container1, container2 = j.create_token(dice_img,hover_image)
-                cont.controls.append(container1)
-                cont.controls.append(container2)
+                j.create_token(token_base_img,hover_image)
+                cont.controls.append(j.gesture_cont)
+                cont.controls.append(j.selected)
+                self.logfile.write('Gesture and selected lottie added for current player!\n')
+                self.logfile.flush()
 
             # Creates the frame for each player playing !
             color = players[-1].color.color
@@ -151,10 +167,21 @@ class Game:
                 left = cal_x + frames[color]['x']*scale
             )
             players[-1].frame = player_frame
+            cont.controls.append(players[-1].came_first)
             cont.controls.append(players[-1].frame) # This is the whole frame shown !
+            self.logfile.write('FRAME AND DICE SECTION OF FRAME ADDED\n')
+            self.logfile.flush()
             self.page.update()
 
+        for jk in players:
+            for jj in jk.tokens:
+                cont.controls.append(jj.hover_cont)
+                self.page.update()
+            self.logfile.write(f'HOVERS FOR PLAYER {jk} added!\n')
+            self.logfile.flush()
         cont.controls.append(dice.dice_image) # The dice in real !
+        self.logfile.write('DICE ADDED TO SCREEN !')
+        self.logfile.flush()
         # need to do this dice image just before the gesture container
         for i in players:
             # This is different from the frame shown, as it is only the part
@@ -167,6 +194,21 @@ class Game:
         players_playing = players
         self.page.session.set('players',players_playing)
         self.page.session.set('won_list',[])
+        self.logfile.write(f'WON LIST ADDED AND PLAYERS LIST UPDATED\n')
+        self.logfile.flush()
+
+        def alter_sound(e):
+            if sound_gesture.content.src == 'assets/mute.png':
+                sound_gesture.content.src = "assets/volume.png"
+                os.environ['sound'] = '1'
+                self.logfile.write(f'SOUND TURNED ON!\n')
+                self.logfile.flush()
+            else:
+                sound_gesture.content.src = "assets/mute.png"
+                os.environ['sound'] = '0'
+                self.logfile.write(f'SOUND TURNED OFF\n')
+                self.logfile.flush()
+            self.page.update()
 
         # the back button
         back = ft.Image(
@@ -174,9 +216,17 @@ class Game:
             width = data.get('block_width')*1.5,
             height = data.get('block_height')*1.5
         )
+        sound = ft.Image(
+                    "volume.png",
+                    width = data.get('block_width')*1.5,
+                    height = data.get('block_height')*1.5
+                )
         def back_to_the_main(e=None):
+            self.logfile.write(f'\n\nBACK TO THE MAIN PAGE\n')
+            self.logfile.flush()
             temp_store = self.page.views.pop()
             self.page.update()
+            diagnostics.send_diagnostics_data(None,self.page,self.logfile_path)
             return
         back_gesture = ft.GestureDetector(
             mouse_cursor=ft.MouseCursor.CLICK,
@@ -187,15 +237,37 @@ class Game:
             top = 20,
             left = 20
         )
+        sound_gesture = ft.GestureDetector(
+            mouse_cursor=ft.MouseCursor.CLICK,
+            content=sound,
+            on_tap = alter_sound,
+            width = data.get('block_width')*1.5,
+            height = data.get('block_height')*1.5,
+            top = 20,
+            left = w - 80
+        )
         cont.controls.append(back_gesture)
+        cont.controls.append(sound_gesture)
+        self.logfile.write(f'BACK AND SOUND EMOTES ON THE SCREEN NOW !\n')
+        self.logfile.flush()
 
         # Adds all contents to the bgimg to display with the background image !
         bgimg.content = cont
         self.view.controls.append(bgimg)
+        self.logfile.write(f'ALL THINGS ON THE SCREEN NOW FOR THE CURRENT MATCH !\n')
+        self.logfile.flush()
 
         # Initializes the game play
         player_in_turn = random.choice(players)
         dice.associate_player(player_in_turn) # Very Important else GameOver error (check roll method of Dice class in base.py)
+        self.logfile.write(f'FIRST RANDOM PLAYER ASSOCIATED !\n')
+        self.logfile.flush()
         dice.update_dice_locs()     # Update dice locs based on the player in turn
+        self.logfile.write(f'Dice Locs Updated !\n')
+        self.logfile.flush()
         player_in_turn.frame_cont.on_tap = dice.roll    # Allow rolling the dice when dice is clicked !
+        self.logfile.write(f'Dice Allowed to Roll\n')
+        self.logfile.flush()
         self.page.update()
+        self.logfile.write(f'MATCH INITIATED !\n')
+        self.logfile.flush()
